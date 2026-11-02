@@ -13,6 +13,26 @@ PENDING rows are filled by the environment bootstrap story (#40, priitkustala/ai
 | Seed synthetic data | PENDING: #40 fills it | |
 | Development-only sign-in | PENDING: #40 fills it | |
 
+## Variables the scenarios read
+
+They live in the git-ignored `.env.local` at the repository root; `e2e/playwright.config.ts`
+loads that file, and a value already set in the environment wins (priitkustala/ai-news#40).
+`PUBLISHABLE_KEY` in the same file is the local stack's publishable key, copied on the host
+from the ai-news-backend checkout's `.env.local`; `SUPABASE_URL` and `PUBLISHABLE_KEY` are
+the two values the client build reads.
+
+| Name | Value |
+|---|---|
+| `E2E_BASE_URL` | `http://localhost:3000` (the built client, served by `npm start` at the repository root) |
+| `E2E_BUILT_CLIENT_DIR` | `/workspaces/ai-news-frontend/dist` (the folder `npm run build` writes and `npm start` serves) |
+| `E2E_APP_SIGNIN_COMMAND` | `node /workspaces/ai-news-frontend/scripts/app-sign-in.mjs {persona} {file}` (signs the seeded persona in through the client's own sign-in screen and saves the browser state as a Playwright storage-state file) |
+| `E2E_BACKEND_COMMAND` | `node /workspaces/ai-news-frontend/scripts/backend-command.mjs` (relays `seed`, `ingest` and `sign-in` to the backend's development-only command relay `http://ai-news-commands:8090`; any other subcommand is refused there) |
+| `E2E_DATA_URL` | `http://ai-news-api:8000/rest/v1` (the local Supabase interface's Data API, through the gateway) |
+| `E2E_PUBLISHABLE_KEY` | the local publishable key: the value of `PUBLISHABLE_KEY` in `.env.local` (never the hosted project's, never committed) |
+| `E2E_FIXTURE_FEED_URL` | `http://ai-news-feeds:8081/feeds/techcrunch-ai.xml` (the backend's fixture feed server; no scenario of this repository reads it, and it is on the backend's internal network only) |
+| `E2E_OD08` | `undecided` (OD-08 is open; no scenario of this repository reads it) |
+| `E2E_RUN_TIME_ZONE` | `UTC` (a test variable; OD-09 stays open) |
+
 ## Run
 
 ```
