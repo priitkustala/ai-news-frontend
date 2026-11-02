@@ -1,0 +1,33 @@
+/* The client's stylesheet (OD-45): Tailwind CSS with Basecoat's components on top, set to
+   the approved design handoff (ai-news-team-context/design/ai-news-app/v1/README.md,
+   section Visual language). Built by `npm run build` into dist/styles.css. */
+@import "tailwindcss" source(none);
+@import "basecoat-css";
+
+@source "../src";
+@source "../public";
+
+/* Design tokens of the handoff mapped onto Basecoat's variables. */
+:root {
+  --background: #ffffff;
+  --foreground: #1a1c21;
+  --card: #ffffff;
+  --card-foreground: #1a1c21;
+  --primary: #1f4fd1;
+  --primary-foreground: #ffffff;
+  --muted-foreground: #545a66;
+  --destructive: #7a1414;
+  --border: #d9dce1;
+  --input: #8a909c;
+  --ring: #1f4fd1;
+}
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans text-[15px] leading-[1.35];
+  }
+}
