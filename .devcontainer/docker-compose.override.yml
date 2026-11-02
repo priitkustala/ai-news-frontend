@@ -8,9 +8,24 @@
 # dockerComposeFile, and compose errors on a missing file.
 services:
   workload:
+    environment:
+      # The local Supabase interface of the backend box (priitkustala/ai-news#40) is
+      # reached directly on the shared network, never through the egress proxy.
+      NO_PROXY: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands
+      no_proxy: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands
+    networks:
+      - internal
+      - ai-news-local
     volumes:
       # Team context (front door, testing rules, team memory), read-only. Writes to
       # team memory leave the box only as a reviewed pull request.
       - ../../ai-news-team-context:/workspaces/ai-news-team-context:ro
       # The shared end-to-end testing skill from the host, read-only.
       - ${USERPROFILE:-${HOME}}/.agents/skills/outside-in-e2e-testing:/workspaces/.skills/outside-in-e2e-testing:ro
+
+networks:
+  # Created by the ai-news-backend box's compose project (its override file), which
+  # must be started first; joined here so the client reaches http://ai-news-api:8000.
+  ai-news-local:
+    name: ai-news-local
+    external: true
