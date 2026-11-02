@@ -24,7 +24,7 @@ git-ignored `.env.local` (names in `e2e/README.md`, section Variables the scenar
 | Task | Where | Command |
 |---|---|---|
 | Install | box | `npm ci --ignore-scripts` and `cd e2e && npm ci` |
-| Browser for the scenarios, once per machine | box | `cd e2e && npx playwright install webkit` (WebKit also needs its system libraries in the box) |
+| Browser for the scenarios, once per box | box | `cd e2e && npx playwright install webkit`, then its system libraries: `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` (apt through the box's gateway: `deb.debian.org` and `security.debian.org` are on the allowlist; repeat after the box is rebuilt) |
 | Build and type check | box | `npm run build` (tsc strict, Tailwind CSS, then `scripts/build.mjs` writes `dist/` with `SUPABASE_URL` and `PUBLISHABLE_KEY` of `.env.local`) |
 | Serve the client | box | `npm start` (`http://localhost:3000`, loopback only; stop with Ctrl+C) |
 | Seed a fixture set | box | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (through the backend's relay) |
@@ -96,7 +96,7 @@ the project folder, next to `ai-news-team-context/`.
   are reviewed before they run.
 - `.devcontainer/` belongs to this repository. The egress allowlist is the
   `x-extra-allowed-domains` anchor in `.devcontainer/docker-compose.yml` and changes
-  only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios).
+  only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios); `deb.debian.org`, `security.debian.org` (WebKit's system libraries, priitkustala/ai-news#40).
 - Inside the box, use git there and not on the host checkout. No production
   credentials enter the box.
 - Identities: attended sessions may use the owner's own sign-in. Unattended runs

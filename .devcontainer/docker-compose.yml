@@ -11,7 +11,7 @@
 # which enforces it, and the workload, which decides cross-vendor install off
 # it, read the same value). Set to e.g. "yourorg.atlassian.net" or, for
 # cross-vendor kits, "auth.openai.com,chatgpt.com,api.openai.com".
-x-extra-allowed-domains: &extra_allowed_domains "auth.openai.com,chatgpt.com,api.openai.com,cdn.playwright.dev,playwright.download.prss.microsoft.com"
+x-extra-allowed-domains: &extra_allowed_domains "auth.openai.com,chatgpt.com,api.openai.com,cdn.playwright.dev,playwright.download.prss.microsoft.com,deb.debian.org,security.debian.org"
 
 # Org plugin provisioning (repo decisions, preserved by `sandbox sync`).
 # Marketplaces/plugins persist in the per-machine volume, NOT per repo — a
