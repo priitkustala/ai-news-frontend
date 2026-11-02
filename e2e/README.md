@@ -5,13 +5,13 @@ synthetic data. Run them with the shared skill `outside-in-e2e-testing`.
 
 ## Start, seed, sign in (fill these in; never guess them)
 
-PENDING rows are filled by the environment bootstrap story (#40, priitkustala/ai-news#40) with the real commands and ports; nobody guesses them (LOCKED specification, section Local test environment, SHA-256 d32043642ac985b907e6ccb80e8d1fc4868ae3c526c2453ccace6517a3dac890).
+Filled by the environment bootstrap story (priitkustala/ai-news#40) with the real commands and ports (LOCKED specification, section Local test environment, SHA-256 d32043642ac985b907e6ccb80e8d1fc4868ae3c526c2453ccace6517a3dac890). Commands run in this repository's dev container from the repository root. The backend's stack is started first, in ai-news-backend (its `AGENTS.md`, row Start the stack). The full table is in `../AGENTS.md`, Build, Test, Run.
 
 | Step | Command | Address |
 |---|---|---|
-| Start the app locally | PENDING: #40 fills it | PENDING: #40 fills it |
-| Seed synthetic data | PENDING: #40 fills it | |
-| Development-only sign-in | PENDING: #40 fills it | |
+| Start the app locally | `npm run build`, then `npm start`; or `node scripts/run-scenarios.mjs <playwright arguments>`, which serves `dist/` for one scenario run and stops it | client `http://localhost:3000`; local Supabase interface `http://ai-news-api:8000` (Data API `/rest/v1`, Supabase Auth `/auth/v1`); command relay `http://ai-news-commands:8090` |
+| Seed synthetic data | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` | |
+| Development-only sign-in | `node scripts/app-sign-in.mjs owner <storage-state-file>` (the client's own sign-in screen; saves a Playwright storage state); a token only: `node scripts/backend-command.mjs sign-in owner` | |
 
 ## Variables the scenarios read
 
