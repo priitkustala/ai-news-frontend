@@ -1,5 +1,6 @@
-// The client shell of priitkustala/ai-news#40: the installable page with the owner's
-// sign-in (OD-21: email and password, one account) against the local Supabase interface.
+// The client shell of priitkustala/ai-news#40: the installable page with a sign-in screen
+// that signs the seeded synthetic personas in against the local Supabase interface (the
+// hosted sign-in is OD-21, DECIDED 2026-11-01; its detail is not part of this repository).
 // It shows no feed yet: the feed, categories, article view, bookmarks and the rest arrive
 // with their own stories, so it carries none of their data-testid names.
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
