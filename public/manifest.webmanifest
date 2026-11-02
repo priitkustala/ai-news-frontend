@@ -1,0 +1,11 @@
+{
+  "name": "AI news",
+  "short_name": "AI news",
+  "description": "AI-specific news for the owner's iPhone",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "en"
+}

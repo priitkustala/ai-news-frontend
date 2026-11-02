@@ -7,17 +7,33 @@ work here. Changes to this file are reviewed in a pull request like code.
 
 The iPhone app of ai-news: the owner reads AI-specific news in it. It talks to the backend only through the backend's published interface. Backend services are not in this repository; they live in `ai-news-backend`.
 
-- Language/runtime: PENDING (set in the Brief stage from the LOCKED specification)
-- Frameworks: PENDING (same)
-- Deployment: PENDING (the iPhone delivery path is decided in the specification)
+- Language/runtime: TypeScript, compiled by tsc 7.0.2, for the browser; a plain installable browser client (OD-06 A); the scripts run on Node 22 (OD-03)
+- Frameworks: none; Tailwind CSS 4.3.3 with basecoat-css 1.0.2 (OD-45); @supabase/supabase-js 2.117.2 for the data interface and sign-in
+- Deployment: the static files of `dist/`; the release host (Firebase Hosting, OD-22) is set up at Release and run; nothing is deployed by #40
 - Owning team: ai-news; team context: `ai-news-team-context`
 
 ## Build, Test, Run
 
-PENDING. No stack is chosen yet, so no command is listed and none may be assumed. The
-first story of the Development pillar fills this table with exact commands (install,
-build, unit tests, integration tests, end-to-end tests, lint and format, run locally,
-run one test) and the Done When list below. Until then no feature work starts here.
+Filled by the environment bootstrap story (priitkustala/ai-news#40). "Box" is this
+repository's dev container, from the repository root. The local stack (the Supabase
+interface `http://ai-news-api:8000` and the command relay `http://ai-news-commands:8090`)
+belongs to ai-news-backend and is started there first (its `AGENTS.md`, Build, Test, Run,
+row Start the stack); this box joins its network `ai-news-local`. The bindings live in the
+git-ignored `.env.local` (names in `e2e/README.md`, section Variables the scenarios read).
+
+| Task | Where | Command |
+|---|---|---|
+| Install | box | `npm ci --ignore-scripts` and `cd e2e && npm ci` |
+| Browser for the scenarios, once per box | box | `cd e2e && npx playwright install webkit`, then its system libraries: `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` (apt through the box's gateway: `deb.debian.org` and `security.debian.org` are on the allowlist; repeat after the box is rebuilt) |
+| Build and type check | box | `npm run build` (tsc strict, Tailwind CSS, then `scripts/build.mjs` writes `dist/` with `SUPABASE_URL` and `PUBLISHABLE_KEY` of `.env.local`) |
+| Serve the client | box | `npm start` (`http://localhost:3000`, loopback only; stop with Ctrl+C) |
+| Seed a fixture set | box | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (through the backend's relay) |
+| Development sign-in, client | box, client served | `node scripts/app-sign-in.mjs owner <storage-state-file>` (or `second-user`) |
+| Development sign-in, token | box | `node scripts/backend-command.mjs sign-in owner` |
+| Scoped scenarios | box | `node scripts/run-scenarios.mjs --project=iphone --grep "@story-40"` (serves `dist/`, runs, stops the server) |
+| One scenario | box | `node scripts/run-scenarios.mjs --project=iphone tests/bootstrap/40-40-f-client-loads-with-manifest.spec.ts` |
+| Unit and integration tests | - | none yet: no unit-tested module exists; the first feature story adds the runner as an approved dependency |
+| Lint and format | - | none approved yet; the type check is `npm run build` (strict) |
 
 ## Protected Areas
 
@@ -41,8 +57,11 @@ run one test) and the Done When list below. Until then no feature work starts he
 
 ## How to Verify: Done When
 
-PENDING with the Build, Test, Run table. Until it is filled, "done" cannot be claimed
-for any change other than documentation.
+- `npm run build` exits 0.
+- The scoped scenarios of the story pass, and the scoped regression
+  `--grep "@journey-<journey>"` of each touched journey shows no other change.
+- The diagnostic or before-build evidence the regression contract requires is attached
+  to the pull request.
 
 ## Starting a Session Here
 
@@ -68,8 +87,7 @@ the project folder, next to `ai-news-team-context/`.
   report by journey).
 - Scenarios are written from a story's acceptance criteria before implementation and
   must first fail on their assertion.
-- How to start, seed and sign in locally: `e2e/README.md`. PENDING until the stack is
-  chosen; nobody guesses these commands.
+- How to start, seed and sign in locally: `e2e/README.md`, section Start, seed, sign in.
 
 ## Autonomous Runs: the Sandbox
 
@@ -78,7 +96,7 @@ the project folder, next to `ai-news-team-context/`.
   are reviewed before they run.
 - `.devcontainer/` belongs to this repository. The egress allowlist is the
   `x-extra-allowed-domains` anchor in `.devcontainer/docker-compose.yml` and changes
-  only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios).
+  only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios); `deb.debian.org`, `security.debian.org` (WebKit's system libraries, priitkustala/ai-news#40).
 - Inside the box, use git there and not on the host checkout. No production
   credentials enter the box.
 - Identities: attended sessions may use the owner's own sign-in. Unattended runs
