@@ -25,6 +25,7 @@ Test, Run, A story's own instance). The paired backend's stack is started first,
 | Start the app locally (instance) | host: `AI_NEWS_NETWORK=<backend>-local sandbox` from `<folder>` (`AI_NEWS_NETWORK=ai-news-local` or unset when paired with the repository folder), after its `.env.local` is written; then box: `npm run build`, then `npm start`, or `node scripts/run-scenarios.mjs <playwright arguments>` | client `http://localhost:3000` in that box; the paired backend's `http://ai-news-api:8000` and `http://ai-news-commands:8090`, reachable only on its own network |
 | Seed synthetic data (instance) | box of `<folder>`: `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (seeds the paired backend's database) | |
 | Development-only sign-in (instance) | box of `<folder>`: `node scripts/app-sign-in.mjs owner <storage-state-file>`; a token only: `node scripts/backend-command.mjs sign-in owner` | |
+| State and stop of the instance's box | host, from `<folder>`: `AI_NEWS_NETWORK=<backend>-local docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (state; `AI_NEWS_NETWORK=ai-news-local` when paired with the repository folder), the same with `stop` in place of `ps` (stop; the paired backend keeps running); `../AGENTS.md`, rows State of the instance's box and Stop of the instance's box | |
 
 ## Variables the scenarios read
 
