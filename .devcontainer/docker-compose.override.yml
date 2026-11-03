@@ -24,8 +24,11 @@ services:
       - ${USERPROFILE:-${HOME}}/.agents/skills/outside-in-e2e-testing:/workspaces/.skills/outside-in-e2e-testing:ro
 
 networks:
-  # Created by the ai-news-backend box's compose project (its override file), which
-  # must be started first; joined here so the client reaches http://ai-news-api:8000.
+  # Created by the paired ai-news-backend instance's compose project (its override
+  # file), which must be started first; joined here so the client reaches
+  # http://ai-news-api:8000. AI_NEWS_NETWORK names that instance's network
+  # (priitkustala/ai-news#65): unset, the repository folder's ai-news-local; for a
+  # story's working copy, <paired backend folder name>-local (AGENTS.md, Build, Test, Run).
   ai-news-local:
-    name: ai-news-local
+    name: ${AI_NEWS_NETWORK:-ai-news-local}
     external: true
