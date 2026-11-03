@@ -13,13 +13,29 @@ Filled by the environment bootstrap story (priitkustala/ai-news#40) with the rea
 | Seed synthetic data | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` | |
 | Development-only sign-in | `node scripts/app-sign-in.mjs owner <storage-state-file>` (the client's own sign-in screen; saves a Playwright storage state); a token only: `node scripts/backend-command.mjs sign-in owner` | |
 
+The rows above are the repository folder form. A story's own instance (priitkustala/ai-news#65),
+the separate clone `<folder>` = `ai-news-frontend-<key>` paired with one backend `<backend>` (a
+backend instance `ai-news-backend-<key>` on its network `<backend>-local`, or the repository folder
+`ai-news-backend` on `ai-news-local`), uses the same commands in its own box at `/workspaces/<folder>`;
+only the start and the `.env.local` change (create, `.env.local` and removal: `../AGENTS.md`, Build,
+Test, Run, A story's own instance). The paired backend's stack is started first, with its keys.
+
+| Step | Command | Address |
+|---|---|---|
+| Start the app locally (instance) | host: `AI_NEWS_NETWORK=<backend>-local sandbox` from `<folder>` (`AI_NEWS_NETWORK=ai-news-local` or unset when paired with the repository folder), after its `.env.local` is written; then box: `npm run build`, then `npm start`, or `node scripts/run-scenarios.mjs <playwright arguments>` | client `http://localhost:3000` in that box; the paired backend's `http://ai-news-api:8000` and `http://ai-news-commands:8090`, reachable only on its own network |
+| Seed synthetic data (instance) | box of `<folder>`: `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (seeds the paired backend's database) | |
+| Development-only sign-in (instance) | box of `<folder>`: `node scripts/app-sign-in.mjs owner <storage-state-file>`; a token only: `node scripts/backend-command.mjs sign-in owner` | |
+| State and stop of the instance's box | host, from `<folder>`: `AI_NEWS_NETWORK=<backend>-local docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (state; `AI_NEWS_NETWORK=ai-news-local` when paired with the repository folder), the same with `stop` in place of `ps` (stop; the paired backend keeps running); `../AGENTS.md`, rows State of the instance's box and Stop of the instance's box | |
+
 ## Variables the scenarios read
 
 They live in the git-ignored `.env.local` at the repository root; `e2e/playwright.config.ts`
 loads that file, and a value already set in the environment wins (priitkustala/ai-news#40).
 `PUBLISHABLE_KEY` in the same file is the local stack's publishable key, copied on the host
 from the ai-news-backend checkout's `.env.local`; `SUPABASE_URL` and `PUBLISHABLE_KEY` are
-the two values the client build reads.
+the two values the client build reads. In a story's own instance (priitkustala/ai-news#65) the
+key is copied from the paired backend's `.env.local`, and the three paths below read
+`/workspaces/<folder>/` instead of `/workspaces/ai-news-frontend/`; the other values are the same.
 
 | Name | Value |
 |---|---|

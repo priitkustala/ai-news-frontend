@@ -35,6 +35,54 @@ git-ignored `.env.local` (names in `e2e/README.md`, section Variables the scenar
 | Unit and integration tests | - | none yet: no unit-tested module exists; the first feature story adds the runner as an approved dependency |
 | Lint and format | - | none approved yet; the type check is `npm run build` (strict) |
 
+### A story's own instance (priitkustala/ai-news#65)
+
+The rows above are for the repository folder `ai-news-frontend` and stay as they are. A story
+can instead work in its own instance: a separate clone `ai-news-frontend-<key>` next to it in
+the project folder (`<key>` is the story key in lower case, `s-03`, or a task's issue number,
+`65`), with its own branch and box, paired with one backend: a backend instance
+`ai-news-backend-<key>` (a story of both repositories, or a dedicated backend at main) or the
+repository folder `ai-news-backend` (frontend-only stories of a wave share one backend at main).
+`<folder>` is `ai-news-frontend-<key>`, `<backend>` the paired backend's folder and `<network>`
+its pair network: `<backend>-local` for a backend instance, `ai-news-local` for the repository
+folder. The paired backend is started first, with its keys written (its `AGENTS.md`, Build, Test,
+Run, A story's own instance).
+
+| Task | Where | Command |
+|---|---|---|
+| Create | host, Git Bash, the project folder | `git clone --no-hardlinks --no-checkout --branch main ai-news-frontend <folder>`, then in `<folder>`: `git fetch --no-tags ../ai-news-frontend "+refs/remotes/origin/main:refs/remotes/origin/main"`, `git remote set-url origin https://github.com/priitkustala/ai-news-frontend.git`, `git reset --hard refs/remotes/origin/main` (GitHub main as the checkout knows it; no git network command) |
+| `.env.local` of the instance | host, the project folder | the commands below the table: the instance's own `/workspaces/<folder>/` paths and the paired backend's local publishable key, copied from `<backend>/.env.local` without printing it; never overwrite an existing file |
+| Start the box | host, `<folder>` | `AI_NEWS_NETWORK=<network> sandbox` (the box joins only the paired backend's network; `docker network inspect <network>` must exist first) |
+| Branch | box | `git fetch origin --prune`, `git switch -c <issue>-<slug> --no-track origin/main` |
+| Install | box | as above: `npm ci --ignore-scripts` and `cd e2e && npm ci` |
+| Browser for the scenarios | box | as above, once per box: `cd e2e && npx playwright install webkit`, then `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` |
+| Build and type check | box | as above: `npm run build` (reads `SUPABASE_URL` and `PUBLISHABLE_KEY` of the instance's `.env.local`) |
+| Seed, sign in | box | as above: `node scripts/backend-command.mjs seed <fixture-set> <run-marker>`, `node scripts/backend-command.mjs sign-in owner` (both reach the paired backend's relay) |
+| Scoped scenarios against the paired backend | box | `node scripts/run-scenarios.mjs --project=iphone --grep "@story-<n>"` |
+| State of the instance's box | host, `<folder>`, any time after Start the box | `AI_NEWS_NETWORK=<network> docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (the frontend instance's own project `<folder>_devcontainer` only; `<network>` is `<backend>-local` for a backend instance) |
+| Stop the instance's box | host, `<folder>`, when the story pauses or before Remove | `AI_NEWS_NETWORK=<network> docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml stop` (stops only the frontend instance's containers; the paired backend keeps running, because its stack is its own project; start again with Start the box) |
+| Remove, after the owner merged the instance's pull request | box, then host | box: `git status --porcelain` prints nothing, and `git rev-parse HEAD` equals the `headRefOid` of `gh pr list --repo priitkustala/ai-news-frontend --head <branch> --state merged --json headRefOid`; otherwise stop. Host, `<folder>`: `AI_NEWS_NETWORK=<network> docker compose -p <folder>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml down -v` (the instance's containers, its own networks and node_modules volume; the paired backend's network and the external `agent-*` volumes stay), then from the project folder `rm -rf <folder>`. Remove the frontend instance before its paired backend instance |
+
+The instance's `.env.local`, from the project folder on the host (Git Bash; prints only the names):
+
+```
+f=<folder>; b=<backend>
+[ ! -e $f/.env.local ] && [ "$(grep -c '^PUBLISHABLE_KEY=' $b/.env.local)" = 1 ] && (umask 077; {
+  echo "# Local bindings of $f, paired with $b. Local values only; never commit."
+  grep '^PUBLISHABLE_KEY=' $b/.env.local
+  echo "SUPABASE_URL=http://ai-news-api:8000"
+  echo "E2E_BASE_URL=http://localhost:3000"
+  echo "E2E_BUILT_CLIENT_DIR=/workspaces/$f/dist"
+  echo "E2E_APP_SIGNIN_COMMAND=node /workspaces/$f/scripts/app-sign-in.mjs {persona} {file}"
+  echo "E2E_BACKEND_COMMAND=node /workspaces/$f/scripts/backend-command.mjs"
+  echo "E2E_DATA_URL=http://ai-news-api:8000/rest/v1"
+  grep '^PUBLISHABLE_KEY=' $b/.env.local | sed 's/^PUBLISHABLE_KEY=/E2E_PUBLISHABLE_KEY=/'
+  echo "E2E_FIXTURE_FEED_URL=http://ai-news-feeds:8081/feeds/techcrunch-ai.xml"
+  echo "E2E_OD08=undecided"
+  echo "E2E_RUN_TIME_ZONE=UTC"
+} > $f/.env.local) && grep -v '^#' $f/.env.local | cut -d= -f1
+```
+
 ## Protected Areas
 
 - `AGENTS.md`, `CLAUDE.md`, `.github/`, `CODEOWNERS`: change only in a pull request
