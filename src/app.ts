@@ -1,29 +1,18 @@
 // The client shell of priitkustala/ai-news#40: the installable page with a sign-in screen
 // that signs the seeded synthetic personas in against the local Supabase interface (the
 // hosted sign-in is OD-21, DECIDED 2026-11-01; its detail is not part of this repository).
-// It shows no feed yet: the feed, categories, article view, bookmarks and the rest arrive
-// with their own stories, so it carries none of their data-testid names.
+// A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed); categories,
+// the article view, bookmarks and the rest arrive with their own stories.
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { config } from './config/index.js';
+import { el } from './dom.js';
+import { feedScreen } from './feed/index.js';
 
 const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, config.publishableKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
 const root = document.getElementById('app') as HTMLElement;
-
-type Attributes = Record<string, string>;
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  attributes: Attributes = {},
-  ...children: (Node | string)[]
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
-  node.append(...children);
-  return node;
-}
 
 function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
@@ -83,26 +72,22 @@ function signInScreen(): HTMLElement {
   );
 }
 
-function signedInScreen(session: Session): HTMLElement {
-  const signOut = el('button', { type: 'button', class: 'btn-outline', 'data-testid': 'sign-out' }, 'Sign out');
+// The signed-in screen is the feed (the development sign-in waits for data-testid signed-in).
+function signedInScreen(): HTMLElement {
+  const signOut = el('button', { type: 'button', class: 'btn', 'data-variant': 'outline', 'data-size': 'sm', 'data-testid': 'sign-out' }, 'Sign out');
   signOut.addEventListener('click', () => {
     void client.auth.signOut();
   });
   return el(
     'main',
-    { class: 'flex flex-1 flex-col px-4', 'data-testid': 'signed-in' },
-    el('p', { class: 'text-[13px] text-muted-foreground' }, `Signed in as ${session.user.email ?? 'the owner'}`),
-    el(
-      'section',
-      { class: 'card mt-6' },
-      el('header', {}, el('h2', {}, 'No news to show yet'), el('p', {}, 'The feed screen is added by a later story.')),
-      el('footer', {}, signOut),
-    ),
+    { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
+    feedScreen(client),
+    el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
 }
 
 function render(session: Session | null): void {
-  root.replaceChildren(appBar(), session ? signedInScreen(session) : signInScreen());
+  root.replaceChildren(appBar(), session ? signedInScreen() : signInScreen());
 }
 
 root.replaceChildren(appBar());
