@@ -52,7 +52,7 @@ Run, A story's own instance).
 |---|---|---|
 | Create | host, Git Bash, the project folder | `git clone --no-hardlinks --no-checkout --branch main ai-news-frontend <folder>`, then in `<folder>`: `git fetch --no-tags ../ai-news-frontend "+refs/remotes/origin/main:refs/remotes/origin/main"`, `git remote set-url origin https://github.com/priitkustala/ai-news-frontend.git`, `git reset --hard refs/remotes/origin/main` (GitHub main as the checkout knows it; no git network command) |
 | `.env.local` of the instance | host, the project folder | the commands below the table: the instance's own `/workspaces/<folder>/` paths and the paired backend's local publishable key, copied from `<backend>/.env.local` without printing it; never overwrite an existing file |
-| Start the box | host, `<folder>` | `AI_NEWS_NETWORK=<network> sandbox` (the box joins only the paired backend's network; `docker network inspect <network>` must exist first) |
+| Start the box | host, `<folder>` | `AI_NEWS_NETWORK=<network> AI_NEWS_CLAUDE_VOLUME=instance-claude-config AI_NEWS_CODEX_VOLUME=instance-codex-config sandbox` (the box joins only the paired backend's network; `docker network inspect <network>` must exist first; it mounts the instance's own Claude and Codex configuration volumes `<folder>_devcontainer_instance-claude-config` and `<folder>_devcontainer_instance-codex-config`, priitkustala/ai-news#69) |
 | Branch | box | `git fetch origin --prune`, `git switch -c <issue>-<slug> --no-track origin/main` |
 | Install | box | as above: `npm ci --ignore-scripts` and `cd e2e && npm ci` |
 | Browser for the scenarios | box | as above, once per box: `cd e2e && npx playwright install webkit`, then `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` |
@@ -61,7 +61,7 @@ Run, A story's own instance).
 | Scoped scenarios against the paired backend | box | `node scripts/run-scenarios.mjs --project=iphone --grep "@story-<n>"` |
 | State of the instance's box | host, `<folder>`, any time after Start the box | `AI_NEWS_NETWORK=<network> docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (the frontend instance's own project `<folder>_devcontainer` only; `<network>` is `<backend>-local` for a backend instance) |
 | Stop the instance's box | host, `<folder>`, when the story pauses or before Remove | `AI_NEWS_NETWORK=<network> docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml stop` (stops only the frontend instance's containers; the paired backend keeps running, because its stack is its own project; start again with Start the box) |
-| Remove, after the owner merged the instance's pull request | box, then host | box: `git status --porcelain` prints nothing, and `git rev-parse HEAD` equals the `headRefOid` of `gh pr list --repo priitkustala/ai-news-frontend --head <branch> --state merged --json headRefOid`; otherwise stop. Host, `<folder>`: `AI_NEWS_NETWORK=<network> docker compose -p <folder>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml down -v` (the instance's containers, its own networks and node_modules volume; the paired backend's network and the external `agent-*` volumes stay), then from the project folder `rm -rf <folder>`. Remove the frontend instance before its paired backend instance |
+| Remove, after the owner merged the instance's pull request | box, then host | box: `git status --porcelain` prints nothing, and `git rev-parse HEAD` equals the `headRefOid` of `gh pr list --repo priitkustala/ai-news-frontend --head <branch> --state merged --json headRefOid`; otherwise stop. Host, `<folder>`: `AI_NEWS_NETWORK=<network> AI_NEWS_CLAUDE_VOLUME=instance-claude-config AI_NEWS_CODEX_VOLUME=instance-codex-config docker compose -p <folder>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml down -v` (the instance's containers, its own networks, node_modules volume and its two configuration volumes `<folder>_devcontainer_instance-claude-config` and `<folder>_devcontainer_instance-codex-config` go; the paired backend's network and the external `agent-*` volumes stay), then from the project folder `rm -rf <folder>`. Remove the frontend instance before its paired backend instance |
 
 The instance's `.env.local`, from the project folder on the host (Git Bash; prints only the names):
 
@@ -151,6 +151,31 @@ the project folder, next to `ai-news-team-context/`.
 - `.devcontainer/` belongs to this repository. The egress allowlist is the
   `x-extra-allowed-domains` anchor in `.devcontainer/docker-compose.yml` and changes
   only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios); `deb.debian.org`, `security.debian.org` (WebKit's system libraries, priitkustala/ai-news#40).
+- Box policy (priitkustala/ai-news#69): `.devcontainer/managed-settings.json` is mounted
+  read-only at `/etc/claude-code/managed-settings.json` in every box built from this
+  repository (the override file), at the highest settings precedence. It sets
+  `permissions.defaultMode` `bypassPermissions`: every Claude Code session in the box,
+  attended sessions in this folder's box included, starts with permissions skipped, and
+  the container is the boundary. Its deny rules (`Task`, `Agent`, `Workflow`,
+  `Bash(claude -p *)`, `Bash(claude --print *)`, `Bash(codex exec *)`) still apply in that
+  mode, so no session in the box starts a subagent, a workflow or a nested agent run;
+  `includeCoAuthoredBy` is `false`. The workload sets
+  `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`. The file binds Claude Code sessions only.
+  If an attended session shows Claude Code's one-time confirmation of the mode, the owner
+  accepts it once per configuration volume (it is recorded in that volume); a
+  non-interactive run shows none.
+- Claude Code is pinned to 2.1.287: the last step of `postCreateCommand` in
+  `.devcontainer/devcontainer.json` installs `@anthropic-ai/claude-code@2.1.287` as the box
+  user (the feature alone installs the newest release at every build). The version
+  changes only by a reviewed diff of that line; the workspace launcher refuses to start a
+  box agent when `claude --version` in the box differs from the pin.
+- `sandbox sync` replaces the `.devcontainer` folder and keeps only `.env`,
+  `TEMPLATE_VARIANT` and `docker-compose.override.yml`: its reviewed diff must restore
+  `managed-settings.json` and the pin step of `devcontainer.json`.
+- A story instance's box keeps its Claude and Codex state in two volumes of its own
+  (`<folder>_devcontainer_instance-claude-config` and `_instance-codex-config`, removed
+  with the instance), so it starts with no Codex sign-in; this folder's box keeps the
+  shared `agent-claude-config` and `agent-codex-config`.
 - Inside the box, use git there and not on the host checkout. No production
   credentials enter the box.
 - Identities: attended sessions may use the owner's own sign-in. Unattended runs
