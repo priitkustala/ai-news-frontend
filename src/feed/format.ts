@@ -13,6 +13,12 @@ const parts = new Intl.DateTimeFormat('en-CA', {
   hourCycle: 'h23',
 });
 
+// A run date (YYYY-MM-DD, a calendar date with no zone) as "2 Nov 2026".
+export function shownDate(runDate: string): string {
+  const [year, month, day] = runDate.split('-').map(Number);
+  return `${day} ${MONTHS[month - 1]} ${year}`;
+}
+
 // An ISO 8601 instant as "2 Nov 2026, 21:53" in the device's time zone; empty when it is no instant.
 export function shownTime(instant: string): string {
   const date = new Date(instant);

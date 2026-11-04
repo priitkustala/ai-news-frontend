@@ -1,6 +1,9 @@
 // The feed screen of priitkustala/ai-news#45 (S-08): the headline feed read through the data
-// interface with the owner's session (the feed view and the categories view; owner-only
-// policies of S-05), drawn after the approved artboard 01 (design/ai-news-app/v1). Each
+// interface with the owner's session (the feed, categories and ingestion_runs relations;
+// owner-only policies of S-05), drawn after the approved artboards 01 and 07
+// (design/ai-news-app/v1). The page carries one last-updated element, from the last completed
+// run (B-21): its run date under the app bar, or, when that run completed more than a day ago
+// (B-17), the Stale state above the items with the completion time as its headline. Each
 // feed-item keeps the approved order (OD-17 B, OD-19): the metadata line (source, category,
 // time), the title, the feed's own summary where the feed has one, the image slot (the
 // picture where the item has an image address, the compact slot otherwise), then the link to
@@ -8,7 +11,7 @@
 // stored text is set as a text node, never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
-import { shownTime } from './format.js';
+import { shownDate, shownTime } from './format.js';
 
 interface FeedRow {
   id: string;
@@ -20,6 +23,14 @@ interface FeedRow {
   image_url: string | null;
   published_at: string;
 }
+
+// The last completed run: the ingestion_runs row with status completed and the latest run_date.
+interface CompletedRun {
+  run_date: string;
+  ended_at: string | null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The category's colour on the metadata line (artboard 01, classes ct-rel to ct-oth).
 const CATEGORY_TEXT: Record<string, string> = {
@@ -119,23 +130,54 @@ function feedItem(row: FeedRow, categoryName: string): HTMLElement {
   return item;
 }
 
-async function load(client: SupabaseClient): Promise<{ rows: FeedRow[]; names: Map<string, string> }> {
-  const [feed, categories] = await Promise.all([
+// The last-updated element: under the app bar while the last completed run is less than a day
+// old (artboard 01), inside the Stale state otherwise (artboard 07).
+function lastUpdated(run: CompletedRun | null, now: number): HTMLElement {
+  const completed = run?.ended_at ? Date.parse(run.ended_at) : NaN;
+  if (run && run.ended_at && now - completed > DAY_MS) {
+    return el(
+      'div',
+      { class: 'bg-[#FFF1C7] px-4 py-2.5 text-[15px] font-bold text-[#5C3F00]', 'data-testid': 'stale-state' },
+      el('p', { 'data-testid': 'last-updated' }, `Last updated ${shownTime(run.ended_at)}`),
+      el('p', { class: 'text-[13px] font-normal' }, "More than a day ago. These are not today's headlines."),
+    );
+  }
+  return el(
+    'p',
+    { class: '-mt-1 px-4 pb-2 text-[13px] text-muted-foreground', 'data-testid': 'last-updated' },
+    run ? `Updated ${shownDate(run.run_date)}` : 'Not updated yet',
+  );
+}
+
+async function load(
+  client: SupabaseClient,
+): Promise<{ rows: FeedRow[]; names: Map<string, string>; run: CompletedRun | null }> {
+  const [feed, categories, runs] = await Promise.all([
     client.from('feed').select('id,title,summary,source_name,category,canonical_url,image_url,published_at'),
     client.from('categories').select('id,name'),
+    client
+      .from('ingestion_runs')
+      .select('run_date,ended_at')
+      .eq('status', 'completed')
+      .order('run_date', { ascending: false })
+      .order('ended_at', { ascending: false, nullsFirst: false })
+      .limit(1),
   ]);
   if (feed.error) throw new Error(feed.error.message);
   if (categories.error) throw new Error(categories.error.message);
+  if (runs.error) throw new Error(runs.error.message);
   const names = new Map((categories.data as { id: string; name: string }[]).map((c) => [c.id, c.name]));
-  return { rows: feed.data as FeedRow[], names };
+  return { rows: feed.data as FeedRow[], names, run: ((runs.data as CompletedRun[])[0] ?? null) };
 }
 
-// The feed screen: feed-list with one feed-item per row of the feed view, in the view's order.
+// The feed screen: the last-updated element (or the Stale state holding it), then feed-list
+// with one feed-item per row of the feed view, in the view's order.
 export function feedScreen(client: SupabaseClient): HTMLElement {
   const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
   const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
   load(client).then(
-    ({ rows, names }) => {
+    ({ rows, names, run }) => {
+      list.before(lastUpdated(run, Date.now()));
       list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category)));
     },
     () => {
