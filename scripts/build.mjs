@@ -2,7 +2,8 @@
 // Supabase browser module into dist/ and writes dist/config.js with the local interface
 // address and the local publishable key (priitkustala/ai-news#40). Both are read from the
 // environment or the git-ignored .env.local at the repository root; the build refuses a
-// secret key and an address outside the local stack, so only local values reach the client.
+// secret key and an address outside the local stack, so only local values reach the client;
+// the client reads config.js only through src/config, which refuses a non-publishable key (#43).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
