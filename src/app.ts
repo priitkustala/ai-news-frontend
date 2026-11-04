@@ -5,6 +5,9 @@
 // with their own stories, so it carries none of their data-testid names.
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { config } from './config/index.js';
+import { registerServiceWorker } from './sw-register.js';
+
+registerServiceWorker();
 
 const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, config.publishableKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
