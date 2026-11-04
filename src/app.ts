@@ -5,6 +5,7 @@
 // with their own stories, so it carries none of their data-testid names.
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { config } from './config/index.js';
+import { installHint } from './install/index.js';
 import { registerServiceWorker } from './sw-register.js';
 
 registerServiceWorker();
@@ -104,11 +105,17 @@ function signedInScreen(session: Session): HTMLElement {
   );
 }
 
-function render(session: Session | null): void {
-  root.replaceChildren(appBar(), session ? signedInScreen(session) : signInScreen());
+// The app bar, then the install hint in a Safari tab only (absent in the Home Screen web app).
+function top(): HTMLElement[] {
+  const hint = installHint();
+  return hint ? [appBar(), hint] : [appBar()];
 }
 
-root.replaceChildren(appBar());
+function render(session: Session | null): void {
+  root.replaceChildren(...top(), session ? signedInScreen(session) : signInScreen());
+}
+
+root.replaceChildren(...top());
 // The first event (INITIAL_SESSION) carries the stored session, if any.
 client.auth.onAuthStateChange((_event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
