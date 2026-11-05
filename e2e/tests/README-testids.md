@@ -116,7 +116,7 @@ The client's scenarios set up their Given through ai-news-backend's commands (`s
 
 | Fixture set (`seed` argument) | Row | What it loads (the row's Given; `<run>` is the run marker the scenario passes) | Manifest fields |
 |---|---|---|---|
-| `AC-03a` | AC-03a | a hostile fixture whose title is "<run> <script>alert('xss-<run>')</script>" | - |
+| `AC-03a` | AC-03a | a hostile fixture whose title is "<run> synthetic AI item <script>alert('xss-<run>')</script>" | - |
 | `AC-03b` | AC-03b | a hostile feed with an item (<run>-js-link) whose link is a javascript: address, beside an ordinary item (<run>-hostile-ok) of the same feed | feed_links (every original address the feed must link after the run, http and https only) |
 | `AC-09` | AC-09 | seeded processed items, their titles carrying <run> | items (each `title`, `source`, `category`, `original_url`, `published_at` (ISO 8601 instant; round 20 R20-4): every item the feed must show), last_completed_run_date |
 | `AC-17` | AC-17 | seeded health data whose last completed run is 30 hours old | last_completed_at (ISO 8601 instant at which that run completed, 30 hours before the seed; proposed, round 21 R21-2) |
