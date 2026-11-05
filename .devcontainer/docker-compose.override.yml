@@ -11,8 +11,8 @@ services:
     environment:
       # The local Supabase interface of the backend box (priitkustala/ai-news#40) is
       # reached directly on the shared network, never through the egress proxy.
-      NO_PROXY: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands
-      no_proxy: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands
+      NO_PROXY: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands,ai-news-feeds
+      no_proxy: localhost,127.0.0.1,::1,gateway,ai-news-api,ai-news-commands,ai-news-feeds
       # No telemetry, error reporting or feature-flag fetch from the box
       # (priitkustala/ai-news#69, Anthropic's dev container guidance).
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
