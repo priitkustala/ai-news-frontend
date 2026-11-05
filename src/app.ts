@@ -4,7 +4,7 @@
 // A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed), whose titles
 // open the article view (priitkustala/ai-news-frontend#1, src/article); categories, bookmarks
 // and the rest arrive with their own stories.
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
@@ -124,16 +124,31 @@ function top(): HTMLElement[] {
   return hint ? [appBar(), hint] : [appBar()];
 }
 
+// The user whose screen is shown: undefined before the first event, null on the sign-in screen.
+let renderedUser: string | null | undefined;
+
 function render(session: Session | null): void {
   closeArticle = null;
+  renderedUser = session?.user.id ?? null;
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
+}
+
+// INITIAL_SESSION and SIGNED_OUT always render. Any other event for the user already shown (the
+// SIGNED_IN of a return to the tab, TOKEN_REFRESHED, USER_UPDATED) keeps the screen as it is: an
+// open article view, the feed behind it and its place. A change of user, or between no session
+// and a session, renders.
+function needsRender(event: AuthChangeEvent, session: Session | null): boolean {
+  if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT' || renderedUser === undefined) return true;
+  return (session?.user.id ?? null) !== renderedUser;
 }
 
 // A reload while the article view was open starts on the feed, without its history mark.
 if (location.hash === '#article') history.replaceState(null, '', location.pathname + location.search);
 root.replaceChildren(...top());
 // The first event (INITIAL_SESSION) carries the stored session, if any.
-client.auth.onAuthStateChange((_event, session) => {
+client.auth.onAuthStateChange((event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
-  setTimeout(() => render(session), 0);
+  setTimeout(() => {
+    if (needsRender(event, session)) render(session);
+  }, 0);
 });
