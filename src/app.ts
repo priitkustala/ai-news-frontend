@@ -1,12 +1,14 @@
 // The client shell of priitkustala/ai-news#40: the installable page with a sign-in screen
 // that signs the seeded synthetic personas in against the local Supabase interface (the
 // hosted sign-in is OD-21, DECIDED 2026-11-01; its detail is not part of this repository).
-// A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed); categories,
-// the article view, bookmarks and the rest arrive with their own stories.
+// A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed), whose titles
+// open the article view (priitkustala/ai-news-frontend#1, src/article); categories, bookmarks
+// and the rest arrive with their own stories.
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import { articleScreen } from './article/index.js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
-import { feedScreen } from './feed/index.js';
+import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
 import { registerServiceWorker } from './sw-register.js';
 
@@ -76,6 +78,32 @@ function signInScreen(): HTMLElement {
   );
 }
 
+// The article view stands in for the whole page while it is open, as on artboard 11; the page
+// behind it stays in place, hidden, so going back shows the feed as it was. Opening adds one
+// history entry, so the back control and the browser's own back both return to the feed.
+let closeArticle: (() => void) | null = null;
+
+function openArticle(row: FeedRow, categoryName: string): void {
+  closeArticle?.();
+  const behind = (Array.from(root.children) as HTMLElement[]).filter((node) => !node.hidden);
+  const scroll = window.scrollY;
+  const view = articleScreen(row, categoryName, () => history.back());
+  for (const node of behind) node.hidden = true;
+  root.append(view);
+  window.scrollTo(0, 0);
+  history.pushState({ article: row.id }, '', '#article');
+  closeArticle = () => {
+    closeArticle = null;
+    view.remove();
+    for (const node of behind) node.hidden = false;
+    window.scrollTo(0, scroll);
+  };
+}
+
+// The feed's place is restored here, not by the browser's own restoration of the entry.
+history.scrollRestoration = 'manual';
+window.addEventListener('popstate', () => closeArticle?.());
+
 // The signed-in screen is the feed (the development sign-in waits for data-testid signed-in).
 function signedInScreen(): HTMLElement {
   const signOut = el('button', { type: 'button', class: 'btn', 'data-variant': 'outline', 'data-size': 'sm', 'data-testid': 'sign-out' }, 'Sign out');
@@ -85,7 +113,7 @@ function signedInScreen(): HTMLElement {
   return el(
     'main',
     { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
-    feedScreen(client),
+    feedScreen(client, openArticle),
     el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
 }
@@ -97,9 +125,12 @@ function top(): HTMLElement[] {
 }
 
 function render(session: Session | null): void {
+  closeArticle = null;
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
 }
 
+// A reload while the article view was open starts on the feed, without its history mark.
+if (location.hash === '#article') history.replaceState(null, '', location.pathname + location.search);
 root.replaceChildren(...top());
 // The first event (INITIAL_SESSION) carries the stored session, if any.
 client.auth.onAuthStateChange((_event, session) => {

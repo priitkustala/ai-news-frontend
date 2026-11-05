@@ -7,13 +7,14 @@
 // feed-item keeps the approved order (OD-17 B, OD-19): the metadata line (source, category,
 // time), the title, the feed's own summary where the feed has one, the image slot (the
 // picture where the item has an image address, the compact slot otherwise), then the link to
-// the original. The per-source image policy and the placeholder artwork are S-09's. Every
+// the original. The per-source image policy and the placeholder artwork are S-09's. The title
+// opens the item in the article view (priitkustala/ai-news-frontend#1, src/article). Every
 // stored text is set as a text node, never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
 import { shownDate, shownTime } from './format.js';
 
-interface FeedRow {
+export interface FeedRow {
   id: string;
   title: string;
   summary: string | null;
@@ -34,7 +35,7 @@ interface CompletedRun {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The category's colour on the metadata line (artboard 01, classes ct-rel to ct-oth).
-const CATEGORY_TEXT: Record<string, string> = {
+export const CATEGORY_TEXT: Record<string, string> = {
   releases: 'text-[#1F4FD1]',
   research: 'text-[#6B3FA0]',
   policy: 'text-[#0B6E5E]',
@@ -42,10 +43,10 @@ const CATEGORY_TEXT: Record<string, string> = {
   other: 'text-[#4A5363]',
 };
 
-const EXTERNAL = 'M14 4h6v6M20 4l-9 9M18 14v5H5V6h5';
+export const EXTERNAL = 'M14 4h6v6M20 4l-9 9M18 14v5H5V6h5';
 
 // Only an http or https address becomes a link; anything else is no link at all.
-function webAddress(address: string): URL | null {
+export function webAddress(address: string): URL | null {
   try {
     const url = new URL(address);
     return url.protocol === 'https:' || url.protocol === 'http:' ? url : null;
@@ -108,8 +109,21 @@ function compactSlot(rows: number): HTMLElement {
   });
 }
 
-function feedItem(row: FeedRow, categoryName: string): HTMLElement {
-  const title = el('h2', { class: 'text-[17px] font-bold leading-[1.3]', 'data-testid': 'feed-item-title' }, row.title);
+// Opens an item in the article view; the shell decides how (src/app.ts).
+export type OpenArticle = (row: FeedRow, categoryName: string) => void;
+
+// The headline: a link that holds only the title's text and opens the article view.
+function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
+  const link = el('a', { class: 'block min-h-6', href: '#article', 'data-testid': 'feed-item-title' }, row.title);
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    open(row, categoryName);
+  });
+  return el('h2', { class: 'text-[17px] font-bold leading-[1.3]' }, link);
+}
+
+function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
+  const title = headline(row, categoryName, open);
   const summary = row.summary
     ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
     : null;
@@ -172,14 +186,14 @@ async function load(
 }
 
 // The feed screen: the last-updated element (or the Stale state holding it), then feed-list
-// with one feed-item per row of the feed view, in the view's order.
-export function feedScreen(client: SupabaseClient): HTMLElement {
+// with one feed-item per row of the feed view, in the view's order; a title opens its row with open.
+export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLElement {
   const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
   const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
   load(client).then(
     ({ rows, names, run }) => {
       list.before(lastUpdated(run, Date.now()));
-      list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category)));
+      list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
     },
     () => {
       // The Error state is S-19's; until then the screen says plainly that nothing loaded.
