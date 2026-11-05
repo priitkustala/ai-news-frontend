@@ -7,6 +7,10 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
 import { feedScreen } from './feed/index.js';
+import { installHint } from './install/index.js';
+import { registerServiceWorker } from './sw-register.js';
+
+registerServiceWorker();
 
 const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, config.publishableKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
@@ -86,11 +90,17 @@ function signedInScreen(): HTMLElement {
   );
 }
 
-function render(session: Session | null): void {
-  root.replaceChildren(appBar(), session ? signedInScreen() : signInScreen());
+// The app bar, then the install hint in a Safari tab only (absent in the Home Screen web app).
+function top(): HTMLElement[] {
+  const hint = installHint();
+  return hint ? [appBar(), hint] : [appBar()];
 }
 
-root.replaceChildren(appBar());
+function render(session: Session | null): void {
+  root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
+}
+
+root.replaceChildren(...top());
 // The first event (INITIAL_SESSION) carries the stored session, if any.
 client.auth.onAuthStateChange((_event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
