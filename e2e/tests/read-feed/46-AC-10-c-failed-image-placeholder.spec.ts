@@ -8,6 +8,10 @@ import { runMarker } from '../../support/env';
 import { seed } from '../../support/job';
 import { box, itemWithTitle } from '../../support/feed';
 
+// The held route must see the image request: with the client's service worker in control,
+// WebKit's requests bypass page.route (S-09 finding B2).
+test.use({ serviceWorkers: 'block' });
+
 test(
   'AC-10c: an image that fails to load shows the placeholder without shifting the layout',
   { tag: ['@journey-read-feed', '@surface-app', '@story-46'] },
