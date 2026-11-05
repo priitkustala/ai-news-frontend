@@ -72,7 +72,7 @@ test(
     // feed at the same position, with no second read of the data interface
     await expect(view, 'the article view stays after the notification').toBeVisible();
     await expect(view.getByTestId('article-title')).toHaveText(expectedTitle);
-    await view.getByTestId('article-back').tap();
+    await page.getByTestId('article-back').tap();
     await expect(view).toHaveCount(0);
     await expect(title, 'the feed is shown again').toBeVisible();
     await expect
