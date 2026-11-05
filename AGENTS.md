@@ -148,6 +148,7 @@ the project folder, next to `ai-news-team-context/`.
 - Unattended or auto-accept work runs only inside this repository's dev container:
   run `sandbox` from this folder in Git Bash. On the host, commands and file changes
   are reviewed before they run.
+- orchestrators run box agents of any agent CLI by the team skill run-agents-in-dev-container.
 - `.devcontainer/` belongs to this repository. The egress allowlist is the
   `x-extra-allowed-domains` anchor in `.devcontainer/docker-compose.yml` and changes
   only through a reviewed diff. Additions so far: `auth.openai.com`, `chatgpt.com`, `api.openai.com` (the second-vendor agent); `cdn.playwright.dev`, `playwright.download.prss.microsoft.com` (browser builds for the scenarios); `deb.debian.org`, `security.debian.org` (WebKit's system libraries, priitkustala/ai-news#40).
