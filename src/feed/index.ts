@@ -24,7 +24,8 @@ interface FeedRow {
   published_at: string;
 }
 
-// The last completed run: the ingestion_runs row with status completed and the latest run_date.
+// The last completed run: the ingestion_runs row with status completed and the latest ended_at
+// (a row without ended_at never outranks one with it; run_date breaks a tie).
 interface CompletedRun {
   run_date: string;
   ended_at: string | null;
@@ -159,8 +160,8 @@ async function load(
       .from('ingestion_runs')
       .select('run_date,ended_at')
       .eq('status', 'completed')
-      .order('run_date', { ascending: false })
       .order('ended_at', { ascending: false, nullsFirst: false })
+      .order('run_date', { ascending: false })
       .limit(1),
   ]);
   if (feed.error) throw new Error(feed.error.message);
