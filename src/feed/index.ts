@@ -5,14 +5,15 @@
 // run (B-21): its run date under the app bar, or, when that run completed more than a day ago
 // (B-17), the Stale state above the items with the completion time as its headline. Each
 // feed-item keeps the approved order (OD-17 B, OD-19): the metadata line (source, category,
-// time), the title, the feed's own summary where the feed has one, the image slot (the
-// picture where the item has an image address, the compact slot otherwise), then the link to
-// the original. The per-source image policy and the placeholder artwork are S-09's. The title
-// opens the item in the article view (priitkustala/ai-news-frontend#1, src/article). Every
-// stored text is set as a text node, never as markup (B-03).
+// time), the title, the feed's own summary where the feed has one, the image slot (S-09,
+// ./image.ts: the picture or the owned placeholder by the source's image policy), then the
+// link to the original. The title opens the item in the article view
+// (priitkustala/ai-news-frontend#1, src/article). Every stored text is set as a text node,
+// never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
 import { shownDate, shownTime } from './format.js';
+import { imageSlot } from './image.js';
 
 export interface FeedRow {
   id: string;
@@ -22,6 +23,7 @@ export interface FeedRow {
   category: string;
   canonical_url: string;
   image_url: string | null;
+  image_policy: string | null;
   published_at: string;
 }
 
@@ -84,29 +86,22 @@ function originalLink(row: FeedRow): HTMLElement | null {
   );
 }
 
-// The picture drawn the full card width (361 by 160) where the item has an image address.
-function picture(address: URL): HTMLElement {
-  const image = el('img', {
-    class: 'h-full w-full object-cover',
-    src: address.href,
-    alt: '',
-    loading: 'lazy',
-    referrerpolicy: 'no-referrer',
-  });
-  return el(
-    'figure',
-    { class: 'mt-1 flex flex-col gap-1', 'data-testid': 'feed-item-image-slot' },
-    el('div', { class: 'h-40 w-full overflow-hidden rounded-[10px] bg-[#F4F5F7]' }, image),
-  );
+// The compact layout (artboard 01): the slot at the item's left in an 88 px column, the text
+// beside it. Document order stays metadata, title, summary, slot, link.
+function compactLayout(item: HTMLElement, text: HTMLElement[], slot: HTMLElement, link: HTMLElement | null): void {
+  const rows = text.length + (link ? 1 : 0);
+  item.className = 'grid min-h-28 grid-cols-[88px_minmax(0,1fr)] content-start gap-x-3 gap-y-1 border-b border-[#E3E5E9] px-4 py-3';
+  for (const node of [...text, ...(link ? [link] : [])]) node.classList.add('col-start-2');
+  slot.classList.add('col-start-1', 'row-start-1', rows === 4 ? 'row-span-4' : 'row-span-3');
+  item.replaceChildren(...text, slot, ...(link ? [link] : []));
 }
 
-// The compact 88 by 88 slot at the item's left; its artwork arrives with S-09.
-function compactSlot(rows: number): HTMLElement {
-  return el('div', {
-    class: `col-start-1 row-start-1 ${rows === 4 ? 'row-span-4' : 'row-span-3'} size-22 overflow-hidden rounded-lg bg-[#F4F5F7]`,
-    'aria-hidden': 'true',
-    'data-testid': 'feed-item-image-slot',
-  });
+// The picture layout (artboards 01 and 08): the picture the full card width between the
+// summary and the link, the credit line of a licensed image under it.
+function pictureLayout(item: HTMLElement, text: HTMLElement[], picture: HTMLElement, credit: HTMLElement | null, link: HTMLElement | null): void {
+  item.className = 'flex min-h-28 flex-col gap-1.5 border-b border-[#E3E5E9] px-4 py-3';
+  for (const node of [...text, ...(link ? [link] : [])]) node.classList.remove('col-start-2');
+  item.replaceChildren(...text, picture, ...(credit ? [credit] : []), ...(link ? [link] : []));
 }
 
 // Opens an item in the article view; the shell decides how (src/app.ts).
@@ -128,20 +123,11 @@ function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
     ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
     : null;
   const link = originalLink(row);
-  const image = row.image_url ? webAddress(row.image_url) : null;
   const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
-  const item = el('article', { class: 'border-b border-[#E3E5E9] px-4 py-3', 'data-testid': 'feed-item' });
-
-  if (image) {
-    item.classList.add('flex', 'min-h-28', 'flex-col', 'gap-1.5');
-    item.append(...text, picture(image), ...(link ? [link] : []));
-  } else {
-    // Document order stays metadata, title, summary, slot, link; the grid draws the slot at
-    // the left as on artboard 01.
-    item.classList.add('grid', 'min-h-28', 'grid-cols-[88px_minmax(0,1fr)]', 'content-start', 'gap-x-3', 'gap-y-1');
-    for (const node of [...text, ...(link ? [link] : [])]) node.classList.add('col-start-2');
-    item.append(...text, compactSlot(text.length + (link ? 1 : 0)), ...(link ? [link] : []));
-  }
+  const item = el('article', { 'data-testid': 'feed-item' });
+  // Compact until a picture has loaded (S-09): pending, placeholder and failed keep this layout.
+  const slot = imageSlot(row, (picture, credit) => pictureLayout(item, text, picture, credit, link));
+  compactLayout(item, text, slot, link);
   return item;
 }
 
@@ -168,7 +154,7 @@ async function load(
   client: SupabaseClient,
 ): Promise<{ rows: FeedRow[]; names: Map<string, string>; run: CompletedRun | null }> {
   const [feed, categories, runs] = await Promise.all([
-    client.from('feed').select('id,title,summary,source_name,category,canonical_url,image_url,published_at'),
+    client.from('feed').select('id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at'),
     client.from('categories').select('id,name'),
     client
       .from('ingestion_runs')

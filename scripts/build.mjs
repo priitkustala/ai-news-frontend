@@ -4,9 +4,11 @@
 // environment or the git-ignored .env.local at the repository root; the build refuses a
 // secret key and an address outside the local stack, so only local values reach the client;
 // the client reads config.js only through src/config, which refuses a non-publishable key (#43).
+// It also fills the Content-Security-Policy img-src of index.html with the image hosts of
+// src/config/images.ts, as tsc compiled it (priitkustala/ai-news#46, S-09 plan step 4).
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
@@ -38,4 +40,17 @@ fs.writeFileSync(
   path.join(dist, 'config.js'),
   `window.AI_NEWS_CONFIG = ${JSON.stringify({ supabaseUrl, publishableKey })};\n`,
 );
-console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${supabaseUrl})`);
+// img-src 'self' plus the image hosts; each must be an http or https origin, nothing else.
+const { imageHosts } = await import(pathToFileURL(path.join(dist, 'config', 'images.js')).href);
+for (const host of imageHosts) {
+  const url = URL.canParse(host) ? new URL(host) : null;
+  if (!url || !['http:', 'https:'].includes(url.protocol) || url.origin !== host) {
+    fail(`image host ${host} in src/config/images.ts is not an http or https origin.`);
+  }
+}
+const indexFile = path.join(dist, 'index.html');
+const index = fs.readFileSync(indexFile, 'utf8');
+if (!index.includes('{{IMAGE_HOSTS}}')) fail('public/index.html has no {{IMAGE_HOSTS}} in its Content-Security-Policy.');
+fs.writeFileSync(indexFile, index.replace('{{IMAGE_HOSTS}}', imageHosts.join(' ')));
+
+console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${supabaseUrl}; img-src 'self' ${imageHosts.join(' ')})`);
