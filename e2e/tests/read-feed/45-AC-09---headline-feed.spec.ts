@@ -33,7 +33,9 @@ test(
       const item = await itemWithTitle(page, expected.title, 'Then');
       await expect(item.getByTestId('feed-item-source')).toHaveText(expected.source);
       await expect(item.getByTestId('feed-item-category')).toHaveText(expected.category);
-      await expect(item.getByTestId('feed-item-time')).toHaveText(shownTime(expected.published_at));
+      // The mirror item shows its date only (artboard 10, README-testids.md line 59)
+      const time = shownTime(expected.published_at);
+      await expect(item.getByTestId('feed-item-time')).toHaveText(expected.source === 'Anthropic News' ? time.split(',')[0] : time);
       await expect(item.getByTestId('feed-item-original')).toHaveAttribute('href', expected.original_url);
     }
     await expect(page.getByTestId('last-updated')).toHaveText(shownDate(String(manifest.last_completed_run_date)));

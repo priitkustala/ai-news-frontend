@@ -12,11 +12,12 @@
 // never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
-import { shownDate, shownTime } from './format.js';
+import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
 
 export interface FeedRow {
   id: string;
+  source_id: string;
   title: string;
   summary: string | null;
   source_name: string;
@@ -57,7 +58,12 @@ export function webAddress(address: string): URL | null {
   }
 }
 
+// The Anthropic news mirror's items show their publication date only (artboard
+// 10-feed-item-anthropic-mirror.html, "17 Oct 2026"); every other source shows date and time.
+const ANTHROPIC_MIRROR = 'anthropic-news-mirror';
+
 function metaLine(row: FeedRow, categoryName: string): HTMLElement {
+  const shown = row.source_id === ANTHROPIC_MIRROR ? shownDay(row.published_at) : shownTime(row.published_at);
   return el(
     'p',
     { class: 'text-[13px] text-muted-foreground' },
@@ -65,7 +71,7 @@ function metaLine(row: FeedRow, categoryName: string): HTMLElement {
     ' · ',
     el('span', { class: `font-semibold ${CATEGORY_TEXT[row.category] ?? CATEGORY_TEXT.other}`, 'data-testid': 'feed-item-category' }, categoryName),
     ' · ',
-    el('time', { datetime: row.published_at, 'data-testid': 'feed-item-time' }, shownTime(row.published_at)),
+    el('time', { datetime: row.published_at, 'data-testid': 'feed-item-time' }, shown),
   );
 }
 
@@ -154,7 +160,7 @@ async function load(
   client: SupabaseClient,
 ): Promise<{ rows: FeedRow[]; names: Map<string, string>; run: CompletedRun | null }> {
   const [feed, categories, runs] = await Promise.all([
-    client.from('feed').select('id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at'),
+    client.from('feed').select('id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at'),
     client.from('categories').select('id,name'),
     client
       .from('ingestion_runs')
