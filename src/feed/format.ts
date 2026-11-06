@@ -26,3 +26,8 @@ export function shownTime(instant: string): string {
   const p = Object.fromEntries(parts.formatToParts(date).map((part) => [part.type, part.value]));
   return `${Number(p.day)} ${MONTHS[Number(p.month) - 1]} ${p.year}, ${p.hour}:${p.minute}`;
 }
+
+// The date part of shownTime, without the time of day: "2 Nov 2026"; empty when it is no instant.
+export function shownDay(instant: string): string {
+  return shownTime(instant).split(',')[0];
+}
