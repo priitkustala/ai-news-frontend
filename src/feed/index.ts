@@ -189,6 +189,15 @@ async function load(
   return { rows, categories: categories.data as Category[], run: ((runs.data as CompletedRun[])[0] ?? null) };
 }
 
+// The Empty state (artboard 04): no row of the feed view for the selection; no error styling.
+function emptyState(categoryName: string | null): HTMLElement {
+  return el(
+    'div',
+    { class: 'px-[24px] py-[56px] text-center text-[15px] text-[#3D424C]', 'data-testid': 'empty-state' },
+    el('p', { class: 'font-bold' }, categoryName === null ? 'Nothing new today.' : `Nothing new in ${categoryName} today.`),
+  );
+}
+
 // The feed screen: the last-updated element (or the Stale state holding it), the category filter,
 // then feed-list with one feed-item per row of the feed view, in the view's order; a title opens
 // its row with open. A chip reads the feed again for its category (All: every row).
@@ -196,21 +205,26 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLEleme
   const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
   const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
   let names = new Map<string, string>();
-  const show = (rows: FeedRow[]) => {
+  // The rows of a selection (categoryName null for All), or the Empty state when there are none.
+  const show = (rows: FeedRow[], categoryName: string | null) => {
+    if (rows.length === 0) {
+      list.replaceChildren(emptyState(categoryName));
+      return;
+    }
     list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
   };
   // The Error state is S-19's; until then the screen says plainly that nothing loaded.
   const failed = () => {
     list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground' }, 'The headlines could not be loaded.'));
   };
-  const select = (category: string | null) => {
-    readFeed(client, category).then(show, failed);
+  const select = (category: string | null, name: string) => {
+    readFeed(client, category).then((rows) => show(rows, category === null ? null : name), failed);
   };
   load(client).then(
     ({ rows, categories, run }) => {
       names = new Map(categories.map((category) => [category.id, category.name]));
       list.before(lastUpdated(run, Date.now()), categoryFilter(categories, select));
-      show(rows);
+      show(rows, null);
     },
     failed,
   );
