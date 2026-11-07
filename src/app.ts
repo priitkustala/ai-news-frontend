@@ -6,10 +6,12 @@
 // and the rest arrive with their own stories.
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
+import { refreshBookmarks } from './bookmarks/control.js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
 import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
+import { statusRegion } from './status.js';
 import { registerServiceWorker } from './sw-register.js';
 
 registerServiceWorker();
@@ -19,6 +21,8 @@ const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, 
 });
 
 const root = document.getElementById('app') as HTMLElement;
+// The status message stands outside #app, so that it survives every render and the article view.
+document.body.append(statusRegion());
 
 function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
@@ -130,6 +134,8 @@ let renderedUser: string | null | undefined;
 function render(session: Session | null): void {
   closeArticle = null;
   renderedUser = session?.user.id ?? null;
+  // The bookmarks read goes out before the feed's, so the controls are drawn from it.
+  if (session) void refreshBookmarks(client);
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
 }
 

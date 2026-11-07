@@ -11,6 +11,7 @@
 // (priitkustala/ai-news-frontend#1, src/article). Every stored text is set as a text node,
 // never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { bookmarkControl } from '../bookmarks/control.js';
 import { el, icon } from '../dom.js';
 import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
@@ -123,17 +124,20 @@ function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
   return el('h2', { class: 'text-[17px] font-bold leading-[1.3]' }, link);
 }
 
-function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
+// One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
+// last row holds the link to the original, then the bookmark control at the right (artboard 14).
+export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
   const title = headline(row, categoryName, open);
   const summary = row.summary
     ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
     : null;
   const link = originalLink(row);
+  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...(link ? [link] : []), bookmarkControl(row));
   const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
   const item = el('article', { 'data-testid': 'feed-item' });
   // Compact until a picture has loaded (S-09): pending, placeholder and failed keep this layout.
-  const slot = imageSlot(row, (picture, credit) => pictureLayout(item, text, picture, credit, link));
-  compactLayout(item, text, slot, link);
+  const slot = imageSlot(row, (picture, credit) => pictureLayout(item, text, picture, credit, actions));
+  compactLayout(item, text, slot, actions);
   return item;
 }
 
