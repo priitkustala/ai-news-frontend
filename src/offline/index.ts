@@ -6,7 +6,7 @@
 // bookmark rows (item_id, title, link, summary). The data requests never pass through the worker.
 // Every read and write of the copy is guarded: a missing or broken copy reads as none. The copy
 // is cleared at sign-out. The mode says what the screens draw: online, offline (no network) or
-// error (online, the data interface failed). navigator.onLine never decides it (it reads false
+// error (online, the data interface failed). The browser's onLine flag never decides it (it reads false
 // while online in the scenarios' WebKit, src/status.ts): after a failed read, reachable() asks
 // the app's own origin. Every text is set as a text node, never as markup (B-03).
 import type { Category } from '../feed/categories.js';
