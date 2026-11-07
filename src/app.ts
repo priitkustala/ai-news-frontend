@@ -195,19 +195,20 @@ function render(session: Session | null): void {
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
 }
 
-// INITIAL_SESSION and SIGNED_OUT always render. Any other event for the user already shown (the
+// The first event and SIGNED_OUT always render. With a stored session the first event is the
+// library's SIGNED_IN, and INITIAL_SESSION follows it. Any other event for the user already shown (the
 // SIGNED_IN of a return to the tab, TOKEN_REFRESHED, USER_UPDATED) keeps the screen as it is: an
 // open article view, the feed behind it and its place. A change of user, or between no session
 // and a session, renders.
 function needsRender(event: AuthChangeEvent, session: Session | null): boolean {
-  if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT' || renderedUser === undefined) return true;
+  if (event === 'SIGNED_OUT' || renderedUser === undefined) return true;
   return (session?.user.id ?? null) !== renderedUser;
 }
 
 // A reload while the article view was open starts on the feed, without its history mark.
 if (location.hash === '#article') history.replaceState(null, '', location.pathname + location.search);
 root.replaceChildren(...top());
-// The first event (INITIAL_SESSION) carries the stored session, if any.
+// The first event carries the stored session, if any.
 client.auth.onAuthStateChange((event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
   setTimeout(() => {
