@@ -9,6 +9,10 @@ import { seed } from '../../support/job';
 import { itemWithTitle } from '../../support/feed';
 import { dataUrl } from '../../support/data';
 
+// The refusing route must see the data requests: with the client's service worker in control,
+// WebKit's requests bypass page.route (S-09 finding B2).
+test.use({ serviceWorkers: 'block' });
+
 test(
   'AC-18a: with the data interface refusing connections the Error state with retry shows over cached items',
   { tag: ['@journey-read-feed', '@surface-app', '@story-4'] },
