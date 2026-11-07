@@ -2,14 +2,16 @@
 // that signs the seeded synthetic personas in against the local Supabase interface (the
 // hosted sign-in is OD-21, DECIDED 2026-11-01; its detail is not part of this repository).
 // A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed), whose titles
-// open the article view (priitkustala/ai-news-frontend#1, src/article); categories, bookmarks
-// and the rest arrive with their own stories.
+// open the article view (priitkustala/ai-news-frontend#1, src/article); in the Home Screen web
+// app it carries the daily notification's subscribe card (priitkustala/ai-news#50, src/push);
+// categories, bookmarks and the rest arrive with their own stories.
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
 import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
+import { pushControl } from './push/index.js';
 import { registerServiceWorker } from './sw-register.js';
 
 registerServiceWorker();
@@ -113,7 +115,7 @@ function signedInScreen(): HTMLElement {
   return el(
     'main',
     { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
-    feedScreen(client, openArticle),
+    feedScreen(client, openArticle, pushControl(client)),
     el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
 }

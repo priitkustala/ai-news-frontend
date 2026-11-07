@@ -177,14 +177,16 @@ async function load(
   return { rows: feed.data as FeedRow[], names, run: ((runs.data as CompletedRun[])[0] ?? null) };
 }
 
-// The feed screen: the last-updated element (or the Stale state holding it), then feed-list
-// with one feed-item per row of the feed view, in the view's order; a title opens its row with open.
-export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLElement {
+// The feed screen: the last-updated element (or the Stale state holding it), then push, the
+// subscribe card or a notification note of S-15 where there is one (artboards 18 to 20), then
+// feed-list with one feed-item per row of the feed view, in the view's order; a title opens its
+// row with open.
+export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null): HTMLElement {
   const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
-  const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
+  const screen = el('div', { class: 'flex flex-1 flex-col' }, ...(push ? [push] : []), list);
   load(client).then(
     ({ rows, names, run }) => {
-      list.before(lastUpdated(run, Date.now()));
+      screen.prepend(lastUpdated(run, Date.now()));
       list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
     },
     () => {
