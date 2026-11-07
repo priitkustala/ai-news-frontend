@@ -6,8 +6,12 @@
 // then one control to the original address. It shows the feed row the feed screen already read
 // with the owner's session. No article body is stored, so none is shown (B-12), and the client
 // never requests the original address: it is only the href of original-article, opened on the
-// publisher's site. Every stored text is set as a text node, never as markup (B-03).
+// publisher's site. Offline (priitkustala/ai-news-frontend#4, S-19, artboard 12) the Offline
+// banner stands above the back control and the needs-a-connection note in place of the control
+// to the original; the stored fields and their order stay. Every stored text is set as a text
+// node, never as markup (B-03).
 import { el, icon } from '../dom.js';
+import { currentMode, needsConnection, OFFLINE_ARTICLE, offlineBanner } from '../offline/index.js';
 import { CATEGORY_TEXT, EXTERNAL, webAddress, type FeedRow } from '../feed/index.js';
 import { shownTime } from '../feed/format.js';
 import { imageSlot } from '../feed/image.js';
@@ -63,7 +67,8 @@ export function articleScreen(row: FeedRow, categoryName: string, back: () => vo
   const summary = row.summary
     ? el('p', { class: 'text-[17px] leading-normal', 'data-testid': 'article-summary' }, row.summary)
     : null;
-  const original = originalControl(row);
+  const offline = currentMode() === 'offline';
+  const original = offline ? needsConnection() : originalControl(row);
   const slot = imageSlot(row, (picture, credit) => slot.replaceWith(picture, ...(credit ? [credit] : [])), 'article');
   const fields = [
     metaLine(row, categoryName),
@@ -75,6 +80,7 @@ export function articleScreen(row: FeedRow, categoryName: string, back: () => vo
   return el(
     'main',
     { class: 'flex flex-1 flex-col' },
+    ...(offline ? [offlineBanner(OFFLINE_ARTICLE)] : []),
     el('header', { class: 'px-4 pt-3.5 pb-2' }, backControl(back)),
     el('article', { class: 'flex flex-col gap-3 px-4 pt-2 pb-4', 'data-testid': 'article-view' }, ...fields),
   );

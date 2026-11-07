@@ -9,9 +9,12 @@
 // card width at 361 by 160, with its text alternative from the item's title and, for a
 // licensed image, the credit line naming the source; a failed load keeps the compact slot and
 // everything after it where it was (failed). A placeholder-policy source makes no image request
-// at all. A hotlink picture is loaded by the phone and never stored: no cache holds it.
-// Every text is set as a text node, never as markup (B-03).
+// at all. Offline (priitkustala/ai-news-frontend#4, S-19) a source that is not licensed gets the
+// compact slot with the placeholder and makes no request; under OD-18 A a licensed picture that
+// has loaded is stored for offline reading (src/offline storeLicensed). A hotlink picture is loaded by the
+// phone and never stored: no cache holds it. Every text is set as a text node, never as markup (B-03).
 import { el } from '../dom.js';
+import { currentMode, storeLicensed } from '../offline/index.js';
 
 export type ImageState = 'pending' | 'licensed' | 'hotlink' | 'placeholder' | 'failed';
 
@@ -140,7 +143,8 @@ export function imageSlot(
   prefix: Prefix = 'feed-item',
 ): HTMLElement {
   const policy = policyOf(subject.image_policy);
-  const address = policy === 'placeholder' ? null : imageAddress(subject.image_url);
+  const offline = currentMode() === 'offline' && policy !== 'licensed';
+  const address = policy === 'placeholder' || offline ? null : imageAddress(subject.image_url);
   if (!address) return compactSlot(subject, policy, 'placeholder', prefix);
 
   const slot = compactSlot(subject, policy, 'pending', prefix);
@@ -149,6 +153,7 @@ export function imageSlot(
     'load',
     () => {
       const state = policy === 'licensed' ? 'licensed' : 'hotlink';
+      if (state === 'licensed') storeLicensed(address.href);
       showPicture(pictureSlot(image, policy, state, prefix), state === 'licensed' ? credit(subject, prefix) : null);
     },
     { once: true },

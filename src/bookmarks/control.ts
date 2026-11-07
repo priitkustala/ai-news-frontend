@@ -1,8 +1,8 @@
 // The bookmark control of priitkustala/ai-news#51 (S-16, B-15), drawn after the approved
 // artboard 14 (design/ai-news-app/v1): a 40 by 40 button whose aria-pressed is its only state,
 // outline when not bookmarked, filled on a tinted circle when bookmarked. The bookmarks live in
-// the bookmarks table under the owner's session and its owner-only policies (OD-33 A: no copy
-// on the device). One set of bookmarked item ids serves every control on the page, so the feed
+// the bookmarks table under the owner's session and its owner-only policies (OD-33 A); the device
+// keeps only S-19's read-only copy of what was shown (src/offline), for reading offline. One set of bookmarked item ids serves every control on the page, so the feed
 // and the Bookmarks list agree; the client is held here, so that a control needs only its row.
 // Add is an insert, and a row already there (23505) counts as done, since the table grants no
 // update; remove is a delete by item_id. Both are idempotent. aria-pressed changes only after
@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
 import { announce } from '../status.js';
+import { bookmarksCopy, saveBookmarks } from '../offline/index.js';
 
 // The fields a bookmark row keeps of its item (Locked, Data model: title, link, summary as shown).
 export interface BookmarkSubject {
@@ -45,12 +46,15 @@ export function replaceBookmarks(ids: Iterable<string>): void {
   sync();
 }
 
-// Reads the owner's bookmarks; a failed read leaves the set as it was.
+// Reads the owner's bookmarks, with no automatic retry; a failed read fills the set from the
+// device's copy, if any.
 export async function refreshBookmarks(next: SupabaseClient): Promise<void> {
   client = next;
-  const { data, error } = await next.from('bookmarks').select('item_id');
+  const { data, error } = await next.from('bookmarks').select('item_id').retry(false);
   if (error) {
     console.error('bookmarks could not be read', error.message);
+    const copy = bookmarksCopy();
+    if (copy) replaceBookmarks(copy.map((row) => row.item_id));
     return;
   }
   replaceBookmarks((data as { item_id: string }[]).map((row) => row.item_id));
@@ -93,8 +97,10 @@ export function bookmarkControl(row: BookmarkSubject): HTMLButtonElement {
       announce(FAILED);
       return;
     }
+    const copy = (bookmarksCopy() ?? []).filter((kept) => kept.item_id !== row.id);
     if (was) saved.delete(row.id);
     else saved.add(row.id);
+    saveBookmarks(was ? copy : [{ item_id: row.id, title: row.title, link: row.canonical_url, summary: row.summary || null }, ...copy]);
     sync();
     announce(was ? 'Bookmark removed' : 'Bookmark saved');
   });

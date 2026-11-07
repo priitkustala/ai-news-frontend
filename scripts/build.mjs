@@ -5,7 +5,10 @@
 // secret key and an address outside the local stack, so only local values reach the client;
 // the client reads config.js only through src/config, which refuses a non-publishable key (#43).
 // It also fills the Content-Security-Policy img-src of index.html with the image hosts of
-// src/config/images.ts, as tsc compiled it (priitkustala/ai-news#46, S-09 plan step 4).
+// src/config/images.ts, as tsc compiled it (priitkustala/ai-news#46, S-09 plan step 4), and
+// writes into dist/sw.js the list of the files its install stores for offline reading and the
+// cache name made from their content (priitkustala/ai-news-frontend#4, S-19).
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -53,4 +56,23 @@ const index = fs.readFileSync(indexFile, 'utf8');
 if (!index.includes('{{IMAGE_HOSTS}}')) fail('public/index.html has no {{IMAGE_HOSTS}} in its Content-Security-Policy.');
 fs.writeFileSync(indexFile, index.replace('{{IMAGE_HOSTS}}', imageHosts.join(' ')));
 
-console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${supabaseUrl}; img-src 'self' ${imageHosts.join(' ')})`);
+// The service worker's shell: every file of dist/ but sw.js itself, "/" for index.html, in a
+// cache named ai-news-shell- and the first 12 characters of the SHA-256 of their bytes.
+const swFile = path.join(dist, 'sw.js');
+const sw = fs.readFileSync(swFile, 'utf8');
+if (!sw.includes("'{{SHELL_CACHE}}'") || !sw.includes('{{SHELL_FILES}}')) {
+  fail('public/sw.js has no {{SHELL_CACHE}} or {{SHELL_FILES}}.');
+}
+const shellFiles = fs
+  .readdirSync(dist, { recursive: true, withFileTypes: true })
+  .filter((entry) => entry.isFile())
+  .map((entry) => path.relative(dist, path.join(entry.parentPath, entry.name)).split(path.sep).join('/'))
+  .filter((file) => file !== 'sw.js')
+  .sort();
+const digest = crypto.createHash('sha256');
+for (const file of shellFiles) digest.update(fs.readFileSync(path.join(dist, file)));
+const shellCache = `ai-news-shell-${digest.digest('hex').slice(0, 12)}`;
+const shellPaths = shellFiles.map((file) => (file === 'index.html' ? '/' : `/${file}`));
+fs.writeFileSync(swFile, sw.replace("'{{SHELL_CACHE}}'", JSON.stringify(shellCache)).replace('{{SHELL_FILES}}', JSON.stringify(shellPaths)));
+
+console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${supabaseUrl}; img-src 'self' ${imageHosts.join(' ')}; ${shellPaths.length} shell files)`);
