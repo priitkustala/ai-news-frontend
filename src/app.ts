@@ -3,14 +3,19 @@
 // hosted sign-in is OD-21, DECIDED 2026-11-01; its detail is not part of this repository).
 // A signed-in session shows the feed screen (priitkustala/ai-news#45, src/feed), whose titles
 // open the article view (priitkustala/ai-news-frontend#1, src/article) and whose category
-// filter narrows it (priitkustala/ai-news-frontend#2, src/feed/categories.ts); bookmarks and the
-// rest arrive with their own stories.
+// filter narrows it (priitkustala/ai-news-frontend#2, src/feed/categories.ts). Bookmarks arrived
+// with priitkustala/ai-news#51 (src/bookmarks, the Feed and Bookmarks tabs of src/nav.ts and the
+// status message of src/status.ts); the rest arrive with their own stories.
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
+import { refreshBookmarks } from './bookmarks/control.js';
+import { bookmarksPanel } from './bookmarks/index.js';
 import { config } from './config/index.js';
 import { el } from './dom.js';
 import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
+import { markTab, tabBar, type Tab } from './nav.js';
+import { statusRegion } from './status.js';
 import { registerServiceWorker } from './sw-register.js';
 
 registerServiceWorker();
@@ -20,6 +25,13 @@ const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, 
 });
 
 const root = document.getElementById('app') as HTMLElement;
+// The tab bar and the status message stand outside #app, so that they survive every render and
+// stay over the article view (artboard 11); the bar shows with a session only. The page's bottom
+// padding keeps the last item and sign-out above the bar.
+const bar = tabBar(selectTab);
+bar.hidden = true;
+document.body.append(bar, statusRegion());
+root.classList.add('pb-[75px]');
 
 function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
@@ -105,16 +117,56 @@ function openArticle(row: FeedRow, categoryName: string): void {
 history.scrollRestoration = 'manual';
 window.addEventListener('popstate', () => closeArticle?.());
 
-// The signed-in screen is the feed (the development sign-in waits for data-testid signed-in).
+// The Bookmarks panel of the signed-in screen, the tab shown and the feed's place while
+// Bookmarks is shown.
+let bookmarks: ReturnType<typeof bookmarksPanel> | null = null;
+let shownTab: Tab = 'feed';
+let feedScroll = 0;
+
+function showTab(tab: Tab): void {
+  if (!bookmarks) return;
+  const feed = bookmarks.panel.previousElementSibling as HTMLElement | null;
+  const title = root.querySelector('header h1');
+  if (tab === 'bookmarks') {
+    if (shownTab === 'feed') feedScroll = window.scrollY;
+    if (feed) feed.hidden = true;
+    bookmarks.panel.hidden = false;
+    if (title) title.textContent = 'Bookmarks';
+    window.scrollTo(0, 0);
+    void bookmarks.reload();
+  } else {
+    if (feed) feed.hidden = false;
+    bookmarks.panel.hidden = true;
+    if (title) title.textContent = 'AI news';
+    if (shownTab === 'bookmarks') window.scrollTo(0, feedScroll);
+  }
+  shownTab = tab;
+}
+
+// A tab tapped in the article view closes it first (popstate, as the back control does).
+function selectTab(tab: Tab): void {
+  if (closeArticle) {
+    window.addEventListener('popstate', () => showTab(tab), { once: true });
+    history.back();
+    return;
+  }
+  showTab(tab);
+}
+
+// The signed-in screen is the feed (the development sign-in waits for data-testid signed-in),
+// with the Bookmarks panel, hidden, behind the Bookmarks tab.
 function signedInScreen(): HTMLElement {
   const signOut = el('button', { type: 'button', class: 'btn', 'data-variant': 'outline', 'data-size': 'sm', 'data-testid': 'sign-out' }, 'Sign out');
   signOut.addEventListener('click', () => {
     void client.auth.signOut();
   });
+  bookmarks = bookmarksPanel(client, openArticle);
+  bookmarks.panel.hidden = true;
   return el(
     'main',
     { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
     feedScreen(client, openArticle),
+    bookmarks.panel,
     el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
 }
@@ -131,6 +183,12 @@ let renderedUser: string | null | undefined;
 function render(session: Session | null): void {
   closeArticle = null;
   renderedUser = session?.user.id ?? null;
+  bookmarks = null;
+  shownTab = 'feed';
+  markTab(bar, 'feed');
+  bar.hidden = !session;
+  // The bookmarks read goes out before the feed's, so the controls are drawn from it.
+  if (session) void refreshBookmarks(client);
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
 }
 
