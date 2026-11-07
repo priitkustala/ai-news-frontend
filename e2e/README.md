@@ -17,7 +17,7 @@ The rows above are the repository folder form. A story's own instance (priitkust
 the separate clone `<folder>` = `ai-news-frontend-<key>` paired with one backend `<backend>` (a
 backend instance `ai-news-backend-<key>` on its network `<backend>-local`, or the repository folder
 `ai-news-backend` on `ai-news-local`), uses the same commands in its own box at `/workspaces/<folder>`;
-only the start and the `.env.local` change (create, `.env.local` and removal: `../AGENTS.md`, Build,
+only the start, the `.env.local` and the key's way in change (create, `.env.local`, the key and removal: `../AGENTS.md`, Build,
 Test, Run, A story's own instance). The paired backend's stack is started first, with its keys.
 
 | Step | Command | Address |
@@ -31,11 +31,14 @@ Test, Run, A story's own instance). The paired backend's stack is started first,
 
 They live in the git-ignored `.env.local` at the repository root; `e2e/playwright.config.ts`
 loads that file, and a value already set in the environment wins (priitkustala/ai-news#40).
-`PUBLISHABLE_KEY` in the same file is the local stack's publishable key, copied on the host
-from the ai-news-backend checkout's `.env.local`; `SUPABASE_URL` and `PUBLISHABLE_KEY` are
-the two values the client build reads. In a story's own instance (priitkustala/ai-news#65) the
-key is copied from the paired backend's `.env.local`, and the three paths below read
-`/workspaces/<folder>/` instead of `/workspaces/ai-news-frontend/`; the other values are the same.
+The publishable key is the exception: `PUBLISHABLE_KEY` and `E2E_PUBLISHABLE_KEY` stand in no
+file. The orchestrator's secrets feed, run with `AI_NEWS_PAIR_BACKEND=<backend>`, puts them in
+the box agent's environment from the paired backend's memory (priitkustala/ai-news#93), so a
+second shell in the box, such as a `docker exec`, does not have them. `SUPABASE_URL` and
+`PUBLISHABLE_KEY` are the two values the client build reads. An older `.env.local` that still
+holds the key keeps working until priitkustala/ai-news#94. In a story's own instance
+(priitkustala/ai-news#65) the three paths below read `/workspaces/<folder>/` instead of
+`/workspaces/ai-news-frontend/`; the other values are the same.
 
 | Name | Value |
 |---|---|
@@ -44,7 +47,7 @@ key is copied from the paired backend's `.env.local`, and the three paths below 
 | `E2E_APP_SIGNIN_COMMAND` | `node /workspaces/ai-news-frontend/scripts/app-sign-in.mjs {persona} {file}` (signs the seeded persona in through the client's own sign-in screen and saves the browser state as a Playwright storage-state file) |
 | `E2E_BACKEND_COMMAND` | `node /workspaces/ai-news-frontend/scripts/backend-command.mjs` (relays `seed`, `ingest` and `sign-in` to the backend's development-only command relay `http://ai-news-commands:8090`; any other subcommand is refused there) |
 | `E2E_DATA_URL` | `http://ai-news-api:8000/rest/v1` (the local Supabase interface's Data API, through the gateway) |
-| `E2E_PUBLISHABLE_KEY` | the local publishable key: the value of `PUBLISHABLE_KEY` in `.env.local` (never the hosted project's, never committed) |
+| `E2E_PUBLISHABLE_KEY` | the local publishable key, the same value as `PUBLISHABLE_KEY`, in the environment only (never the hosted project's, never committed) |
 | `E2E_FIXTURE_FEED_URL` | `http://ai-news-feeds:8081/feeds/techcrunch-ai.xml` (the backend's fixture feed server; no scenario of this repository reads it, and it is on the backend's internal network only) |
 | `E2E_OD08` | `undecided` (OD-08 is open; no scenario of this repository reads it) |
 | `E2E_RUN_TIME_ZONE` | `UTC` (a test variable; OD-09 stays open) |
