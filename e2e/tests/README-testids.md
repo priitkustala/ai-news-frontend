@@ -15,10 +15,6 @@ Every `data-testid` the scenarios and the `support/` helpers of this repository 
 | `article-title` | Article title | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `article-view` | Article view region | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `bookmarks-list` | Bookmarks list | `artboards/13-bookmarks-list.html` |
-| `briefing` | Daily briefing region | `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html` |
-| `briefing-category` | One category section of the briefing | `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html` |
-| `briefing-date` | The briefing's run date | `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html` |
-| `briefing-item` | One top item in the briefing | `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html` |
 | `category-option` | One category in the filter, aria-pressed for the selected one | `artboards/01-feed-items.html`, `artboards/02-feed-loading.html`, `artboards/03-feed-category-filter.html`, `artboards/04-feed-empty-category.html`, `artboards/05-feed-error.html`, `artboards/06-feed-offline.html`, `artboards/07-feed-stale.html`, `artboards/08-feed-item-images.html`, `artboards/09-feed-item-reddit.html`, `artboards/10-feed-item-anthropic-mirror.html`, `artboards/14-bookmark-control.html`, `artboards/15-install-hint-safari-tab.html`, `artboards/18-push-subscribe.html`, `artboards/19-push-refused.html`, `artboards/20-push-unsupported.html` |
 | `empty-state` | Empty category text | `artboards/04-feed-empty-category.html` |
 | `error-state` | Error state over cached items (absent on the Empty artboard) | `artboards/05-feed-error.html` |
@@ -42,7 +38,6 @@ Every `data-testid` the scenarios and the `support/` helpers of this repository 
 | `last-updated` | Last-updated time of the daily feed | `artboards/01-feed-items.html`, `artboards/02-feed-loading.html`, `artboards/03-feed-category-filter.html`, `artboards/04-feed-empty-category.html`, `artboards/05-feed-error.html`, `artboards/06-feed-offline.html`, `artboards/07-feed-stale.html`, `artboards/08-feed-item-images.html`, `artboards/09-feed-item-reddit.html`, `artboards/10-feed-item-anthropic-mirror.html`, `artboards/14-bookmark-control.html`, `artboards/15-install-hint-safari-tab.html`, `artboards/18-push-subscribe.html`, `artboards/19-push-refused.html`, `artboards/20-push-unsupported.html` |
 | `loading` | Loading indicator with its text label | `artboards/02-feed-loading.html` |
 | `nav-bookmarks` | Bookmarks tab (opens Bookmarks) | `artboards/01-feed-items.html`, `artboards/02-feed-loading.html`, `artboards/03-feed-category-filter.html`, `artboards/04-feed-empty-category.html`, `artboards/05-feed-error.html`, `artboards/06-feed-offline.html`, `artboards/07-feed-stale.html`, `artboards/08-feed-item-images.html`, `artboards/09-feed-item-reddit.html`, `artboards/10-feed-item-anthropic-mirror.html`, `artboards/11-article-online.html`, `artboards/12-article-offline.html`, `artboards/13-bookmarks-list.html`, `artboards/14-bookmark-control.html`, `artboards/15-install-hint-safari-tab.html`, `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html`, `artboards/18-push-subscribe.html`, `artboards/19-push-refused.html`, `artboards/20-push-unsupported.html` |
-| `nav-briefing` | Briefing tab, only if OD-08 includes the briefing | `artboards/16-briefing-completed.html`, `artboards/17-briefing-failed-run.html` |
 | `needs-connection` | Note that the full article needs a connection | `artboards/12-article-offline.html` |
 | `notifications-refused` | Re-enable message after a refusal | `artboards/19-push-refused.html` |
 | `offline-banner` | Offline banner | `artboards/06-feed-offline.html`, `artboards/12-article-offline.html` |
@@ -100,7 +95,6 @@ Relations of the exposed schema that the scenarios read through the Data API (Lo
 | `ingestion_runs` | `run_date`, `status` | 40g, AC-01, AC-21a, AC-21b; AC-20 |
 | `bookmarks` | `item_id`, `title`, `link`, `summary` | AC-15c, AC-15d, AC-22c; AC-20 once present |
 | `push_subscriptions` | row count | AC-14a; AC-20 once present (only if OD-08 includes push) |
-| `briefings` | none read directly | AC-20 once present (only if OD-08 includes the briefing) |
 
 Request headers `apikey` and `Authorization: Bearer <session>` follow Supabase's Data API convention: UNVERIFIED; check: 40c and 40d pass against the stack #40 builds, and Supabase's Data API page is read at #40's Brief.
 
@@ -128,8 +122,6 @@ The client's scenarios set up their Given through ai-news-backend's commands (`s
 | `AC-11b` | AC-11b | seeded items in three categories and none in Research today, their titles carrying <run> | - |
 | `AC-19` | AC-19 | seeded items (titles carrying <run>), the feed open, and every data-interface response delayed by 2 seconds (the delay is the Given's slow interface, emulated on the network; the scenario itself waits only on conditions) | - |
 | `AC-12` | AC-12 | a seeded item (<run> in its title) with a feed summary; its publisher article body in the fixture starts with <run>-body | title, source, category, summary, published_at (round 20 R20-4), original_url |
-| `AC-13a` | AC-13a | a completed run for today's run date and its briefing from the frozen fixture (CONDITIONAL on OD-08: briefing or both) | briefing (each category in order, with `category` as shown and `top_titles` in order) |
-| `AC-13b` | AC-13b | today's run failed; the fixture manifest names the previous briefing's run date | previous_run_date |
 | `AC-14a` | AC-14a | the owner's push subscriptions reset; the permission emulated granted in the Home Screen web app context by the scenario (CONDITIONAL on OD-08: push or both) | - |
 | `AC-14b` | AC-14b | seeded items (titles carrying <run>); the permission emulated refused (denied) in the Home Screen web app context by the scenario, which opens the app and taps nothing (CONDITIONAL on OD-08: push or both) | - |
 | `AC-15a` | AC-15a | a seeded item (<run> in its title) | - |
