@@ -26,6 +26,8 @@ test(
     await expect(item.getByTestId('feed-item-bookmark'), 'prerequisite (51): the bookmark control').toHaveAttribute('aria-pressed', 'false');
     await item.getByTestId('feed-item-bookmark').tap();
     await expect(item.getByTestId('feed-item-bookmark')).toHaveAttribute('aria-pressed', 'true');
+    // the service worker controls the page before the network goes (owner decision 2026-11-07)
+    await page.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
 
     // When: offline emulation is switched on and the page is reopened; reopening offline is
     // 4's own first observable (its cache), asserted so that a missing cache fails here on an
