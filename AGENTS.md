@@ -18,14 +18,18 @@ Filled by the environment bootstrap story (priitkustala/ai-news#40). "Box" is th
 repository's dev container, from the repository root. The local stack (the Supabase
 interface `http://ai-news-api:8000` and the command relay `http://ai-news-commands:8090`)
 belongs to ai-news-backend and is started there first (its `AGENTS.md`, Build, Test, Run,
-row Start the stack); this box joins its network `ai-news-local`. The bindings live in the
-git-ignored `.env.local` (names in `e2e/README.md`, section Variables the scenarios read).
+row Start the stack); this box joins its network `ai-news-local`. The non-secret bindings live in the
+git-ignored `.env.local` (names in `e2e/README.md`, section Variables the scenarios read). The
+publishable key is not in that file: the orchestrator's secrets feed, run with
+`AI_NEWS_PAIR_BACKEND=<backend>`, puts it in the box agent's environment from the paired backend's
+memory (priitkustala/ai-news#93). An older `.env.local` that still holds the key keeps working until
+priitkustala/ai-news#94.
 
 | Task | Where | Command |
 |---|---|---|
 | Install | box | `npm ci --ignore-scripts` and `cd e2e && npm ci` |
 | Browser for the scenarios, once per box | box | `cd e2e && npx playwright install webkit`, then its system libraries: `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` (apt through the box's gateway: `deb.debian.org` and `security.debian.org` are on the allowlist; repeat after the box is rebuilt) |
-| Build and type check | box | `npm run build` (tsc strict, Tailwind CSS, then `scripts/build.mjs` writes `dist/` with `SUPABASE_URL` and `PUBLISHABLE_KEY` of `.env.local`) |
+| Build and type check | box | `npm run build` (tsc strict, Tailwind CSS, then `scripts/build.mjs` writes `dist/` with `SUPABASE_URL` of `.env.local` and `PUBLISHABLE_KEY` of the environment; a shell without the key, such as a `docker exec`, stops at `PUBLISHABLE_KEY is not set`) |
 | Serve the client | box | `npm start` (`http://localhost:3000`, loopback only; stop with Ctrl+C) |
 | Seed a fixture set | box | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (through the backend's relay) |
 | Development sign-in, client | box, client served | `node scripts/app-sign-in.mjs owner <storage-state-file>` (or `second-user`) |
@@ -51,12 +55,13 @@ Run, A story's own instance).
 | Task | Where | Command |
 |---|---|---|
 | Create | host, Git Bash, the project folder | `git clone --no-hardlinks --no-checkout --branch main ai-news-frontend <folder>`, then in `<folder>`: `git fetch --no-tags ../ai-news-frontend "+refs/remotes/origin/main:refs/remotes/origin/main"`, `git remote set-url origin https://github.com/priitkustala/ai-news-frontend.git`, `git reset --hard refs/remotes/origin/main` (GitHub main as the checkout knows it; no git network command) |
-| `.env.local` of the instance | host, the project folder | the commands below the table: the instance's own `/workspaces/<folder>/` paths and the paired backend's local publishable key, copied from `<backend>/.env.local` without printing it; never overwrite an existing file |
+| `.env.local` of the instance | host, the project folder | the commands below the table: the instance's own `/workspaces/<folder>/` paths and the pair's local addresses, nine non-secret lines and no key; never overwrite an existing file |
+| The publishable key | host, the orchestrator's shell, when the launcher waits for the secrets | the workspace's secrets feed with `AI_NEWS_PAIR_BACKEND=<backend>` set: the key goes from the paired backend's memory folder to this box's memory, never into a file (priitkustala/ai-news#93) |
 | Start the box | host, `<folder>` | `AI_NEWS_NETWORK=<network> AI_NEWS_CLAUDE_VOLUME=instance-claude-config AI_NEWS_CODEX_VOLUME=instance-codex-config sandbox` (the box joins only the paired backend's network; `docker network inspect <network>` must exist first; it mounts the instance's own Claude and Codex configuration volumes `<folder>_devcontainer_instance-claude-config` and `<folder>_devcontainer_instance-codex-config`, priitkustala/ai-news#69) |
 | Branch | box | `git fetch origin --prune`, `git switch -c <issue>-<slug> --no-track origin/main` |
 | Install | box | as above: `npm ci --ignore-scripts` and `cd e2e && npm ci` |
 | Browser for the scenarios | box | as above, once per box: `cd e2e && npx playwright install webkit`, then `sudo -E env PATH="$PATH" apt-get update && sudo -E env PATH="$PATH" npx playwright install-deps webkit` |
-| Build and type check | box | as above: `npm run build` (reads `SUPABASE_URL` and `PUBLISHABLE_KEY` of the instance's `.env.local`) |
+| Build and type check | box | as above: `npm run build` (reads `SUPABASE_URL` of the instance's `.env.local` and `PUBLISHABLE_KEY` of the box agent's environment) |
 | Seed, sign in | box | as above: `node scripts/backend-command.mjs seed <fixture-set> <run-marker>`, `node scripts/backend-command.mjs sign-in owner` (both reach the paired backend's relay) |
 | Scoped scenarios against the paired backend | box | `node scripts/run-scenarios.mjs --project=iphone --grep "@story-<n>"` |
 | State of the instance's box | host, `<folder>`, any time after Start the box | `AI_NEWS_NETWORK=<network> docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (the frontend instance's own project `<folder>_devcontainer` only; `<network>` is `<backend>-local` for a backend instance) |
@@ -67,16 +72,14 @@ The instance's `.env.local`, from the project folder on the host (Git Bash; prin
 
 ```
 f=<folder>; b=<backend>
-[ ! -e $f/.env.local ] && [ "$(grep -c '^PUBLISHABLE_KEY=' $b/.env.local)" = 1 ] && (umask 077; {
+[ ! -e $f/.env.local ] && (umask 077; {
   echo "# Local bindings of $f, paired with $b. Local values only; never commit."
-  grep '^PUBLISHABLE_KEY=' $b/.env.local
   echo "SUPABASE_URL=http://ai-news-api:8000"
   echo "E2E_BASE_URL=http://localhost:3000"
   echo "E2E_BUILT_CLIENT_DIR=/workspaces/$f/dist"
   echo "E2E_APP_SIGNIN_COMMAND=node /workspaces/$f/scripts/app-sign-in.mjs {persona} {file}"
   echo "E2E_BACKEND_COMMAND=node /workspaces/$f/scripts/backend-command.mjs"
   echo "E2E_DATA_URL=http://ai-news-api:8000/rest/v1"
-  grep '^PUBLISHABLE_KEY=' $b/.env.local | sed 's/^PUBLISHABLE_KEY=/E2E_PUBLISHABLE_KEY=/'
   echo "E2E_FIXTURE_FEED_URL=http://ai-news-feeds:8081/feeds/techcrunch-ai.xml"
   echo "E2E_OD08=undecided"
   echo "E2E_RUN_TIME_ZONE=UTC"
