@@ -9,6 +9,10 @@ import { seed } from '../../support/job';
 import { itemWithTitle } from '../../support/feed';
 import { dataUrl } from '../../support/data';
 
+// The refusing route must see the data requests: with the client's service worker in control,
+// WebKit's requests bypass page.route (S-09 finding B2).
+test.use({ serviceWorkers: 'block' });
+
 test(
   'AC-18b: when the data interface is back, retry shows the feed without a page reload',
   { tag: ['@journey-read-feed', '@surface-app', '@story-4'] },
