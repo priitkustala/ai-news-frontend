@@ -1,8 +1,8 @@
 // The article view of priitkustala/ai-news-frontend#1 (S-10), drawn after the approved
 // artboard 11 (design/ai-news-app/v1): the back control, then the item's stored fields in the
 // approved order (OD-17 B, OD-19): the metadata line (category, source, publication time), the
-// title, the feed's own summary as the dominant text, the image slot (the picture where the item
-// has an image address, the compact slot otherwise, as the feed draws them until S-09's policy),
+// title, the feed's own summary as the dominant text, the image slot (the feed's slot of
+// src/feed/image.ts under the source's image policy, priitkustala/ai-news-frontend#24, S-20),
 // then one control to the original address. It shows the feed row the feed screen already read
 // with the owner's session. No article body is stored, so none is shown (B-12), and the client
 // never requests the original address: it is only the href of original-article, opened on the
@@ -10,6 +10,7 @@
 import { el, icon } from '../dom.js';
 import { CATEGORY_TEXT, EXTERNAL, webAddress, type FeedRow } from '../feed/index.js';
 import { shownTime } from '../feed/format.js';
+import { imageSlot } from '../feed/image.js';
 
 const BACK = 'M15 5l-7 7 7 7';
 
@@ -39,21 +40,6 @@ function metaLine(row: FeedRow, categoryName: string): HTMLElement {
   );
 }
 
-// The picture the full width (361 by 160) where the item has an image address; the compact
-// 88 by 88 slot otherwise (its artwork arrives with S-09).
-function imageSlot(row: FeedRow): HTMLElement {
-  const address = row.image_url ? webAddress(row.image_url) : null;
-  if (!address) {
-    return el('div', { class: 'size-22 overflow-hidden rounded-lg bg-[#F4F5F7]', 'aria-hidden': 'true', 'data-testid': 'article-image-slot' });
-  }
-  const image = el('img', { class: 'h-full w-full object-cover', src: address.href, alt: '', referrerpolicy: 'no-referrer' });
-  return el(
-    'figure',
-    { class: 'flex flex-col gap-1', 'data-testid': 'article-image-slot' },
-    el('div', { class: 'h-40 w-full overflow-hidden rounded-[10px] bg-[#F4F5F7]', 'data-testid': 'article-image' }, image),
-  );
-}
-
 // The one control to the original: a link only an http or https address becomes.
 function originalControl(row: FeedRow): HTMLElement | null {
   const url = webAddress(row.canonical_url);
@@ -78,11 +64,12 @@ export function articleScreen(row: FeedRow, categoryName: string, back: () => vo
     ? el('p', { class: 'text-[17px] leading-normal', 'data-testid': 'article-summary' }, row.summary)
     : null;
   const original = originalControl(row);
+  const slot = imageSlot(row, (picture, credit) => slot.replaceWith(picture, ...(credit ? [credit] : [])), 'article');
   const fields = [
     metaLine(row, categoryName),
     el('h1', { class: 'text-2xl font-bold leading-tight', 'data-testid': 'article-title' }, row.title),
     ...(summary ? [summary] : []),
-    imageSlot(row),
+    slot,
     ...(original ? [original] : []),
   ];
   return el(
