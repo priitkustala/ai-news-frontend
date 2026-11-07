@@ -5,11 +5,12 @@
 // run (B-21): its run date under the app bar, or, when that run completed more than a day ago
 // (B-17), the Stale state above the items with the completion time as its headline. Below it
 // the category filter (priitkustala/ai-news-frontend#2, ./categories.ts, counts from the
-// categories view): each tap reads the feed view again for that category, All for every row. Each
-// feed-item keeps the approved order (OD-17 B, OD-19): the metadata line (source, category,
-// time), the title, the feed's own summary where the feed has one, the image slot (S-09,
-// ./image.ts: the picture or the owned placeholder by the source's image policy), then the
-// link to the original. The title opens the item in the article view
+// categories view): each tap reads the feed view again for that category, All for every row.
+// While a read is open feed-list holds the loading state (artboard 02); a read with no row shows
+// the Empty state (artboard 04). Each feed-item keeps the approved order (OD-17 B, OD-19): the
+// metadata line (source, category, time), the title, the feed's own summary where the feed has
+// one, the image slot (S-09, ./image.ts: the picture or the owned placeholder by the source's
+// image policy), then the link to the original. The title opens the item in the article view
 // (priitkustala/ai-news-frontend#1, src/article). Every stored text is set as a text node,
 // never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -198,15 +199,34 @@ function emptyState(categoryName: string | null): HTMLElement {
   );
 }
 
+// The loading state (artboard 02): a static ring, drawn with CSS borders and hidden from assistive
+// technology, and the words, which carry the meaning (role status).
+function loadingState(words: string): HTMLElement {
+  return el(
+    'div',
+    { class: 'flex flex-col items-center gap-[12px] px-[16px] py-[56px] text-[15px] text-[#3D424C]', 'data-testid': 'loading', role: 'status' },
+    el('div', { class: 'size-[36px] rotate-45 rounded-full border-[4px] border-[#D9DCE1] border-t-[#1F4FD1]', 'aria-hidden': 'true' }),
+    el('span', {}, words),
+  );
+}
+
 // The feed screen: the last-updated element (or the Stale state holding it), the category filter,
 // then feed-list with one feed-item per row of the feed view, in the view's order; a title opens
-// its row with open. A chip reads the feed again for its category (All: every row).
+// its row with open. feed-list holds the loading state (aria-busy) until the first read answers.
+// A chip reads the feed again for its category (All: every row), the loading state replacing the
+// rows meanwhile; only the latest request draws, so a late answer never shows under another chip.
 export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLElement {
-  const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
+  const list = el(
+    'section',
+    { class: 'flex flex-col', 'aria-label': 'Headlines', 'aria-busy': 'true', 'data-testid': 'feed-list' },
+    loadingState('Loading headlines…'),
+  );
   const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
   let names = new Map<string, string>();
+  let latest = 0;
   // The rows of a selection (categoryName null for All), or the Empty state when there are none.
   const show = (rows: FeedRow[], categoryName: string | null) => {
+    list.removeAttribute('aria-busy');
     if (rows.length === 0) {
       list.replaceChildren(emptyState(categoryName));
       return;
@@ -215,10 +235,21 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLEleme
   };
   // The Error state is S-19's; until then the screen says plainly that nothing loaded.
   const failed = () => {
+    list.removeAttribute('aria-busy');
     list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground' }, 'The headlines could not be loaded.'));
   };
   const select = (category: string | null, name: string) => {
-    readFeed(client, category).then((rows) => show(rows, category === null ? null : name), failed);
+    const request = ++latest;
+    list.setAttribute('aria-busy', 'true');
+    list.replaceChildren(loadingState(category === null ? 'Loading headlines…' : `Loading ${name}…`));
+    readFeed(client, category).then(
+      (rows) => {
+        if (request === latest) show(rows, category === null ? null : name);
+      },
+      () => {
+        if (request === latest) failed();
+      },
+    );
   };
   load(client).then(
     ({ rows, categories, run }) => {
