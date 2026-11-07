@@ -89,7 +89,7 @@ npx playwright test                           # full suite
 | offline | `@journey-offline` | The owner reads cached items and bookmarks with no network. Rows here: AC-16a, AC-16b, AC-16c. |
 | open-article | `@journey-open-article` | The owner opens one item in the article view and reaches the original. Rows here: AC-12, AC-10d, AC-10e, AC-10f, AC-10g. |
 | push | `@journey-push` | The owner subscribes to the daily push notification or refuses it (conditional on OD-08). Rows here: AC-14a, AC-14b. |
-| read-feed | `@journey-read-feed` | The owner opens and reads the headline feed and its states (last-updated, Stale, Error). Rows here: AC-03a, AC-03b, AC-09, AC-10a, AC-10b, AC-10c, AC-17, AC-18a, AC-18b, AC-21b, AC-26a, AC-26b, AC-26d, AC-26e, AC-26f, AC-27b, AC-28a, AC-28b. |
+| read-feed | `@journey-read-feed` | The owner opens and reads the headline feed and its states (last-updated, Stale, Error). Rows here: AC-03a, AC-03b, AC-09, AC-09b, AC-09c, AC-10a, AC-10b, AC-10c, AC-17, AC-18a, AC-18b, AC-21b, AC-26a, AC-26b, AC-26d, AC-26e, AC-26f, AC-27b, AC-28a, AC-28b. |
 
 ## Named manual checks (owner, on the real iPhone, release gate)
 
