@@ -1,6 +1,8 @@
-// The feed item's image slot of priitkustala/ai-news#46 (S-09): the picture or the owned
+// The item's image slot of priitkustala/ai-news#46 (S-09): the picture or the owned
 // placeholder by the per-source image policy the feed row carries (Locked B-10, OD-17 B),
 // drawn after the approved artboards 01 and 08 (design/ai-news-app/v1, Image policy table).
+// The article view uses the same slot (priitkustala/ai-news-frontend#24, S-20, artboards 11
+// and 12), with its test ids prefixed article instead of feed-item.
 // Compact until loaded (the Brief's step 3): an item whose source policy is licensed or
 // owner-accepted hotlink and that has an image address starts in the compact 88 by 88 slot
 // with the owned placeholder (pending); a successful load turns it into the picture, the full
@@ -84,65 +86,70 @@ function categoryIcon(category: string): SVGSVGElement {
   return svg;
 }
 
-function placeholder(subject: ImageSubject): HTMLElement {
+// The prefix of the slot's test ids: the feed item's or the article view's.
+type Prefix = 'feed-item' | 'article';
+
+function placeholder(subject: ImageSubject, prefix: Prefix): HTMLElement {
   return el(
     'div',
     {
       class: `flex size-22 flex-col items-center justify-center gap-1 p-1.5 text-white ${PLACEHOLDER_BACKGROUND[subject.category] ?? PLACEHOLDER_BACKGROUND.other}`,
-      'data-testid': 'feed-item-placeholder',
+      'data-testid': `${prefix}-placeholder`,
     },
     categoryIcon(subject.category),
-    el('span', { class: 'text-center text-[11px] font-bold leading-[1.2]', 'data-testid': 'feed-item-placeholder-source' }, subject.source_name),
+    el('span', { class: 'text-center text-[11px] font-bold leading-[1.2]', 'data-testid': `${prefix}-placeholder-source` }, subject.source_name),
   );
 }
 
 // The compact 88 by 88 slot holding the owned placeholder (pending, placeholder or failed).
-function compactSlot(subject: ImageSubject, policy: Policy, state: ImageState): HTMLElement {
+function compactSlot(subject: ImageSubject, policy: Policy, state: ImageState, prefix: Prefix): HTMLElement {
   return el(
     'div',
     {
       class: 'size-22 overflow-hidden rounded-lg',
-      'data-testid': 'feed-item-image-slot',
+      'data-testid': `${prefix}-image-slot`,
       'data-image-state': state,
       'data-image-policy': policy,
     },
-    placeholder(subject),
+    placeholder(subject, prefix),
   );
 }
 
 // The picture the full card width, 361 by 160 with a 10 px radius, with its text alternative.
-function pictureSlot(image: HTMLImageElement, policy: Policy, state: 'licensed' | 'hotlink'): HTMLElement {
+function pictureSlot(image: HTMLImageElement, policy: Policy, state: 'licensed' | 'hotlink', prefix: Prefix): HTMLElement {
   image.className = 'h-full w-full object-cover';
   return el(
     'figure',
-    { class: 'mt-1', 'data-testid': 'feed-item-image-slot', 'data-image-state': state, 'data-image-policy': policy },
-    el('div', { class: 'h-40 w-full overflow-hidden rounded-[10px] bg-[#F4F5F7]', 'data-testid': 'feed-item-image' }, image),
+    { class: 'mt-1', 'data-testid': `${prefix}-image-slot`, 'data-image-state': state, 'data-image-policy': policy },
+    el('div', { class: 'h-40 w-full overflow-hidden rounded-[10px] bg-[#F4F5F7]', 'data-testid': `${prefix}-image` }, image),
   );
 }
 
 // The credit line a licence requires, under the picture (12 px, secondary text).
-function credit(subject: ImageSubject): HTMLElement {
-  return el('p', { class: 'text-xs text-muted-foreground', 'data-testid': 'feed-item-image-credit' }, `Image: ${subject.source_name}`);
+function credit(subject: ImageSubject, prefix: Prefix): HTMLElement {
+  return el('p', { class: 'text-xs text-muted-foreground', 'data-testid': `${prefix}-image-credit` }, `Image: ${subject.source_name}`);
 }
 
 // The item's image slot. It returns the compact slot to place now (pending or placeholder);
 // once a picture has loaded, showPicture is called with the picture slot and, for a licensed
-// image, the credit line, and the item draws the picture layout in place of the compact one.
+// image, the credit line, and the caller draws the picture layout in place of the compact one.
+// prefix names the screen the test ids belong to (the feed item's by default).
 export function imageSlot(
   subject: ImageSubject,
   showPicture: (picture: HTMLElement, credit: HTMLElement | null) => void,
+  prefix: Prefix = 'feed-item',
 ): HTMLElement {
   const policy = policyOf(subject.image_policy);
   const address = policy === 'placeholder' ? null : imageAddress(subject.image_url);
-  if (!address) return compactSlot(subject, policy, 'placeholder');
+  if (!address) return compactSlot(subject, policy, 'placeholder', prefix);
 
-  const slot = compactSlot(subject, policy, 'pending');
+  const slot = compactSlot(subject, policy, 'pending', prefix);
   const image = el('img', { alt: `Image for: ${subject.title}`, referrerpolicy: 'no-referrer', decoding: 'async' });
   image.addEventListener(
     'load',
     () => {
       const state = policy === 'licensed' ? 'licensed' : 'hotlink';
-      showPicture(pictureSlot(image, policy, state), state === 'licensed' ? credit(subject) : null);
+      showPicture(pictureSlot(image, policy, state, prefix), state === 'licensed' ? credit(subject, prefix) : null);
     },
     { once: true },
   );
