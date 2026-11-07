@@ -8,8 +8,8 @@ import { requireEnv, runMarker } from '../../support/env';
 import { seed } from '../../support/job';
 import { itemWithTitle } from '../../support/feed';
 
-// The client's service worker is blocked so that every request of the page is seen by the listener
-// (S-09 finding B2).
+// The held route must see the image request: with the client's service worker in control,
+// WebKit's requests bypass page.route (S-09 finding B2).
 test.use({ serviceWorkers: 'block' });
 
 test(
