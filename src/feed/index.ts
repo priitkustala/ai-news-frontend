@@ -1,9 +1,11 @@
 // The feed screen of priitkustala/ai-news#45 (S-08): the headline feed read through the data
 // interface with the owner's session (the feed, categories and ingestion_runs relations;
-// owner-only policies of S-05), drawn after the approved artboards 01 and 07
+// owner-only policies of S-05), drawn after the approved artboards 01, 03 and 07
 // (design/ai-news-app/v1). The page carries one last-updated element, from the last completed
 // run (B-21): its run date under the app bar, or, when that run completed more than a day ago
-// (B-17), the Stale state above the items with the completion time as its headline. Each
+// (B-17), the Stale state above the items with the completion time as its headline. Below it
+// the category filter (priitkustala/ai-news-frontend#2, ./categories.ts, counts from the
+// categories view): each tap reads the feed view again for that category, All for every row. Each
 // feed-item keeps the approved order (OD-17 B, OD-19): the metadata line (source, category,
 // time), the title, the feed's own summary where the feed has one, the image slot (S-09,
 // ./image.ts: the picture or the owned placeholder by the source's image policy), then the
@@ -12,6 +14,7 @@
 // never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
+import { categoryFilter, type Category } from './categories.js';
 import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
 
@@ -156,12 +159,23 @@ function lastUpdated(run: CompletedRun | null, now: number): HTMLElement {
   );
 }
 
+const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at';
+
+// The feed view's rows in the view's order: every row for category null, otherwise that
+// category's rows only. Each selection of the filter reads the server again (AC-19).
+async function readFeed(client: SupabaseClient, category: string | null): Promise<FeedRow[]> {
+  const query = client.from('feed').select(FEED_COLUMNS);
+  const { data, error } = await (category === null ? query : query.eq('category', category));
+  if (error) throw new Error(error.message);
+  return data as FeedRow[];
+}
+
 async function load(
   client: SupabaseClient,
-): Promise<{ rows: FeedRow[]; names: Map<string, string>; run: CompletedRun | null }> {
-  const [feed, categories, runs] = await Promise.all([
-    client.from('feed').select('id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at'),
-    client.from('categories').select('id,name'),
+): Promise<{ rows: FeedRow[]; categories: Category[]; run: CompletedRun | null }> {
+  const [rows, categories, runs] = await Promise.all([
+    readFeed(client, null),
+    client.from('categories').select('id,name,item_count'),
     client
       .from('ingestion_runs')
       .select('run_date,ended_at')
@@ -170,27 +184,35 @@ async function load(
       .order('run_date', { ascending: false })
       .limit(1),
   ]);
-  if (feed.error) throw new Error(feed.error.message);
   if (categories.error) throw new Error(categories.error.message);
   if (runs.error) throw new Error(runs.error.message);
-  const names = new Map((categories.data as { id: string; name: string }[]).map((c) => [c.id, c.name]));
-  return { rows: feed.data as FeedRow[], names, run: ((runs.data as CompletedRun[])[0] ?? null) };
+  return { rows, categories: categories.data as Category[], run: ((runs.data as CompletedRun[])[0] ?? null) };
 }
 
-// The feed screen: the last-updated element (or the Stale state holding it), then feed-list
-// with one feed-item per row of the feed view, in the view's order; a title opens its row with open.
+// The feed screen: the last-updated element (or the Stale state holding it), the category filter,
+// then feed-list with one feed-item per row of the feed view, in the view's order; a title opens
+// its row with open. A chip reads the feed again for its category (All: every row).
 export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLElement {
   const list = el('section', { class: 'flex flex-col', 'aria-label': 'Headlines', 'data-testid': 'feed-list' });
   const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
+  let names = new Map<string, string>();
+  const show = (rows: FeedRow[]) => {
+    list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
+  };
+  // The Error state is S-19's; until then the screen says plainly that nothing loaded.
+  const failed = () => {
+    list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground' }, 'The headlines could not be loaded.'));
+  };
+  const select = (category: string | null) => {
+    readFeed(client, category).then(show, failed);
+  };
   load(client).then(
-    ({ rows, names, run }) => {
-      list.before(lastUpdated(run, Date.now()));
-      list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
+    ({ rows, categories, run }) => {
+      names = new Map(categories.map((category) => [category.id, category.name]));
+      list.before(lastUpdated(run, Date.now()), categoryFilter(categories, select));
+      show(rows);
     },
-    () => {
-      // The Error state is S-19's; until then the screen says plainly that nothing loaded.
-      list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground' }, 'The headlines could not be loaded.'));
-    },
+    failed,
   );
   return screen;
 }
