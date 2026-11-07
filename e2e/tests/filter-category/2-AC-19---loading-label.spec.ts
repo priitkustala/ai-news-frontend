@@ -9,6 +9,10 @@ import { seed } from '../../support/job';
 import { categoryOption, itemWithTitle } from '../../support/feed';
 import { dataUrl } from '../../support/data';
 
+// The delayed route must see the category request: with the client's service worker in control,
+// WebKit's requests bypass page.route (S-09 finding B2; owner decision of 2026-11-07, option A).
+test.use({ serviceWorkers: 'block' });
+
 test(
   'AC-19: a loading indicator with a text label is present until a delayed category shows',
   { tag: ['@journey-filter-category', '@surface-app', '@story-2'] },
