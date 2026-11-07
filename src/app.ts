@@ -17,6 +17,7 @@ import { el } from './dom.js';
 import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
 import { markTab, tabBar, type Tab } from './nav.js';
+import { clearOffline } from './offline/index.js';
 import { pushControl } from './push/index.js';
 import { statusRegion } from './status.js';
 import { registerServiceWorker } from './sw-register.js';
@@ -190,6 +191,7 @@ function render(session: Session | null): void {
   shownTab = 'feed';
   markTab(bar, 'feed');
   bar.hidden = !session;
+  if (!session) clearOffline();
   // The bookmarks read goes out before the feed's, so the controls are drawn from it.
   if (session) void refreshBookmarks(client);
   root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());

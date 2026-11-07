@@ -4,19 +4,15 @@
 // drawn as that feed-item, with its metadata, image slot, link and pressed control; one the feed
 // no longer lists shows the fields the bookmark row keeps: its title (a link to the original),
 // its summary and the control. A control pressed here leaves its item on the list, unpressed,
-// until the list is opened again. Every stored text is set as a text node, never as markup (B-03).
+// until the list is opened again. A successful read is kept on the device (S-19, src/offline); a
+// failed read draws the kept copy, each row as the kept feed's feed-item where that feed lists it.
+// Every stored text is set as a text node, never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el } from '../dom.js';
 import { feedItem, webAddress, type FeedRow, type OpenArticle } from '../feed/index.js';
 import { announce } from '../status.js';
 import { bookmarkControl, replaceBookmarks } from './control.js';
-
-interface BookmarkRow {
-  item_id: string;
-  title: string;
-  link: string;
-  summary: string | null;
-}
+import { bookmarksCopy, feedCopy, saveBookmarks, type BookmarkCopyRow as BookmarkRow } from '../offline/index.js';
 
 const NOT_LOADED = 'Bookmarks could not be loaded.';
 
@@ -45,26 +41,31 @@ function storedItem(row: BookmarkRow): HTMLElement {
 
 export function bookmarksPanel(client: SupabaseClient, open: OpenArticle): { panel: HTMLElement; reload: () => Promise<void> } {
   const panel = el('section', { class: 'flex flex-col', 'aria-label': 'Bookmarks', 'data-testid': 'bookmarks-list' });
-  // Only the answer of the latest opening is drawn.
+  // Only the answer of the latest opening is drawn. The reads make no automatic retry, so that a
+  // failed one draws the kept copy at once (S-19).
   let opening = 0;
   async function reload(): Promise<void> {
     const mine = ++opening;
     const answers = await Promise.all([
-      client.from('bookmarks').select('item_id,title,link,summary').order('created_at', { ascending: false }),
-      client.from('feed').select('*'),
-      client.from('categories').select('id,name'),
+      client.from('bookmarks').select('item_id,title,link,summary').order('created_at', { ascending: false }).retry(false),
+      client.from('feed').select('*').retry(false),
+      client.from('categories').select('id,name').retry(false),
     ]).catch(() => null);
     if (mine !== opening) return;
     const [bookmarks, feed, categories] = answers ?? [];
-    if (!bookmarks || !feed || !categories || bookmarks.error || feed.error || categories.error) {
+    const read = !(!bookmarks || !feed || !categories || bookmarks.error || feed.error || categories.error);
+    const kept = read ? null : bookmarksCopy();
+    if (!read && !kept) {
       panel.replaceChildren(note(NOT_LOADED));
       announce(NOT_LOADED);
       return;
     }
-    const rows = bookmarks.data as BookmarkRow[];
-    const listed = new Map((feed.data as FeedRow[]).map((row) => [row.id, row]));
-    const names = new Map((categories.data as { id: string; name: string }[]).map((c) => [c.id, c.name]));
+    const keptFeed = read ? null : feedCopy();
+    const rows = read ? (bookmarks.data as BookmarkRow[]) : (kept ?? []);
+    const listed = new Map((read ? (feed.data as FeedRow[]) : (keptFeed?.rows ?? [])).map((row) => [row.id, row]));
+    const names = new Map((read ? (categories.data as { id: string; name: string }[]) : (keptFeed?.categories ?? [])).map((c) => [c.id, c.name]));
     replaceBookmarks(rows.map((row) => row.item_id));
+    if (read) saveBookmarks(rows);
     if (rows.length === 0) {
       panel.replaceChildren(note('No bookmarks yet.'));
       return;
