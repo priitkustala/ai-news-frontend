@@ -214,18 +214,19 @@ function loadingState(words: string): HTMLElement {
   );
 }
 
-// The feed screen: the last-updated element (or the Stale state holding it), the category filter,
-// then feed-list with one feed-item per row of the feed view, in the view's order; a title opens
+// The feed screen: the last-updated element (or the Stale state holding it), then push, the
+// subscribe card or a notification note of S-15 where there is one (artboards 18 to 20), then the
+// category filter, then feed-list with one feed-item per row of the feed view, in the view's order; a title opens
 // its row with open. feed-list holds the loading state (aria-busy) until the first read answers.
 // A chip reads the feed again for its category (All: every row), the loading state replacing the
 // rows meanwhile; only the latest request draws, so a late answer never shows under another chip.
-export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLElement {
+export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null): HTMLElement {
   const list = el(
     'section',
     { class: 'flex flex-col', 'aria-label': 'Headlines', 'aria-busy': 'true', 'data-testid': 'feed-list' },
     loadingState('Loading headlines…'),
   );
-  const screen = el('div', { class: 'flex flex-1 flex-col' }, list);
+  const screen = el('div', { class: 'flex flex-1 flex-col' }, ...(push ? [push] : []), list);
   let names = new Map<string, string>();
   let latest = 0;
   // The rows of a selection (categoryName null for All), or the Empty state when there are none.
@@ -258,7 +259,10 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle): HTMLEleme
   load(client).then(
     ({ rows, categories, run }) => {
       names = new Map(categories.map((category) => [category.id, category.name]));
-      list.before(lastUpdated(run, Date.now()), categoryFilter(categories, select));
+      // last-updated goes first and the filter next to the list it narrows, so push stays between
+      // them whatever it has become meanwhile (removed, or replaced by the refused note).
+      screen.prepend(lastUpdated(run, Date.now()));
+      list.before(categoryFilter(categories, select));
       show(rows, null);
     },
     failed,

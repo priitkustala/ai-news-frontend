@@ -5,7 +5,9 @@
 // open the article view (priitkustala/ai-news-frontend#1, src/article) and whose category
 // filter narrows it (priitkustala/ai-news-frontend#2, src/feed/categories.ts). Bookmarks arrived
 // with priitkustala/ai-news#51 (src/bookmarks, the Feed and Bookmarks tabs of src/nav.ts and the
-// status message of src/status.ts); the rest arrive with their own stories.
+// status message of src/status.ts); in the Home Screen web app the feed carries the daily
+// notification's subscribe card (priitkustala/ai-news#50, src/push); the rest arrive with their
+// own stories.
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
 import { refreshBookmarks } from './bookmarks/control.js';
@@ -15,6 +17,7 @@ import { el } from './dom.js';
 import { feedScreen, type FeedRow } from './feed/index.js';
 import { installHint } from './install/index.js';
 import { markTab, tabBar, type Tab } from './nav.js';
+import { pushControl } from './push/index.js';
 import { statusRegion } from './status.js';
 import { registerServiceWorker } from './sw-register.js';
 
@@ -165,7 +168,7 @@ function signedInScreen(): HTMLElement {
   return el(
     'main',
     { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
-    feedScreen(client, openArticle),
+    feedScreen(client, openArticle, pushControl(client)),
     bookmarks.panel,
     el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
