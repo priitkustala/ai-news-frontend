@@ -81,7 +81,6 @@ npx playwright test                           # full suite
 | access | `@journey-access` | Every read and write of the exposed schema needs the owner's sign-in; no secret leaves its store. Rows here: AC-20e. |
 | bookmark | `@journey-bookmark` | The owner bookmarks and unbookmarks items and hears the status change. Rows here: AC-15a, AC-15b, AC-15e, AC-24a, AC-24b, AC-24c. |
 | bootstrap | `@journey-bootstrap` | The local environment starts with seeded synthetic data (the #40 bootstrap checks). Rows here: 40f. |
-| briefing | `@journey-briefing` | The owner reads the daily briefing of a run date (conditional on OD-08). Rows here: AC-13a, AC-13b. |
 | filter-category | `@journey-filter-category` | The owner reads the category list with counts and narrows the feed to one category. Rows here: AC-11a, AC-11b, AC-19. |
 | install | `@journey-install` | The client is installed and launched as a Home Screen web app. Rows here: AC-23a, AC-23b. |
 | offline | `@journey-offline` | The owner reads cached items and bookmarks with no network. Rows here: AC-16a, AC-16b, AC-16c. |
@@ -102,6 +101,5 @@ What only the real iPhone can show is checked by the owner by hand at the releas
 | M5 | Bookmarks after quit and relaunch | B-15 (AC-15) | release list only |
 | M6 | Airplane Mode after reading online, relaunch from the icon: the Offline banner, cached headlines, summaries as shown and bookmarks readable, as AC-16 | AC-16 (B-16) | AC-16 M6 (S-19) |
 | M7a | Push, if OD-08 chooses it: from the Home Screen icon, after subscribing, one test notification arrives and a rerun on the same date sends none | AC-14 (B-14), CONDITIONAL on OD-08 | AC-14 M7a (S-15) |
-| M7b | Briefing date, if OD-08 chooses the briefing | B-13 (AC-13), CONDITIONAL on OD-08 | release list only |
 | M8 | With VoiceOver on, the feed, a category, an article and the bookmark control are announced and the bookmark change is spoken | AC-24 (B-24) | AC-24 M8 (S-16) |
 | M9 | Bookmarks and offline items after several days unused | B-15, B-16; R-02 | release list only |
