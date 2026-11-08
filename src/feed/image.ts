@@ -26,6 +26,9 @@ export interface ImageSubject {
   // The source's policy as the feed view carries it: licensed, owner-accepted hotlink or
   // placeholder (the default, also for a value the client does not know).
   image_policy: string | null;
+  // A Reddit row's source and community (S-07): its placeholder names Reddit and the community.
+  source_type?: string | null;
+  community?: string | null;
 }
 
 // The policy as data-image-policy writes it (the design's tokens: licensed,
@@ -100,7 +103,8 @@ function placeholder(subject: ImageSubject, prefix: Prefix): HTMLElement {
       'data-testid': `${prefix}-placeholder`,
     },
     categoryIcon(subject.category),
-    el('span', { class: 'text-center text-[11px] font-bold leading-[1.2]', 'data-testid': `${prefix}-placeholder-source` }, subject.source_name),
+    el('span', { class: 'text-center text-[11px] font-bold leading-[1.2]', 'data-testid': `${prefix}-placeholder-source` },
+      subject.source_type === 'reddit' ? `Reddit, r/${subject.community ?? ''}` : subject.source_name),
   );
 }
 
