@@ -5,7 +5,9 @@
 // categories and last run of the last successful first read of the feed, and the owner's
 // bookmark rows (item_id, title, link, summary). The data requests never pass through the worker.
 // Every read and write of the copy is guarded: a missing or broken copy reads as none. The copy
-// is cleared at sign-out. The mode says what the screens draw: online, offline (no network) or
+// is cleared at sign-out, which also ends the signed-in lifetime: a writer captures lifetime()
+// when its work starts and writes only while it is unchanged, so that an answer arriving after
+// sign-out never restores the copy. The mode says what the screens draw: online, offline (no network) or
 // error (online, the data interface failed). The browser's onLine flag never decides it (it reads false
 // while online in the scenarios' WebKit, src/status.ts): after a failed read, reachable() asks
 // the app's own origin. Every text is set as a text node, never as markup (B-03).
@@ -83,7 +85,15 @@ export function bookmarksCopy(): BookmarkCopyRow[] | null {
   return Array.isArray(rows) ? (rows as BookmarkCopyRow[]) : null;
 }
 
+let current = 0;
+
+// The signed-in lifetime now running; clearOffline() starts the next one.
+export function lifetime(): number {
+  return current;
+}
+
 export function clearOffline(): void {
+  current += 1;
   try {
     localStorage.removeItem(FEED_KEY);
     localStorage.removeItem(BOOKMARKS_KEY);
