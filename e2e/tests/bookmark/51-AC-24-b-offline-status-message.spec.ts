@@ -22,6 +22,8 @@ test(
 
     // When: the owner goes offline
     await context.setOffline(true);
+    // priitkustala/ai-news-frontend#37: Playwright 1.65.0's WebKit no longer fires Safari's window offline event; fired here
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
 
     // Then: a status message element announces the new, offline state with the approved copy of
     // artboards/06-feed-offline.html, which starts "You're offline." (round 20 R20-4): a stale
