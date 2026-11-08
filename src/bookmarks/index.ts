@@ -12,7 +12,7 @@ import { el } from '../dom.js';
 import { feedItem, webAddress, type FeedRow, type OpenArticle } from '../feed/index.js';
 import { announce } from '../status.js';
 import { bookmarkControl, replaceBookmarks } from './control.js';
-import { bookmarksCopy, feedCopy, saveBookmarks, type BookmarkCopyRow as BookmarkRow } from '../offline/index.js';
+import { bookmarksCopy, feedCopy, lifetime, saveBookmarks, type BookmarkCopyRow as BookmarkRow } from '../offline/index.js';
 
 const NOT_LOADED = 'Bookmarks could not be loaded.';
 
@@ -41,17 +41,19 @@ function storedItem(row: BookmarkRow): HTMLElement {
 
 export function bookmarksPanel(client: SupabaseClient, open: OpenArticle): { panel: HTMLElement; reload: () => Promise<void> } {
   const panel = el('section', { class: 'flex flex-col', 'aria-label': 'Bookmarks', 'data-testid': 'bookmarks-list' });
-  // Only the answer of the latest opening is drawn. The reads make no automatic retry, so that a
-  // failed one draws the kept copy at once (S-19).
+  // Only the answer of the latest opening is drawn, and only within the signed-in lifetime it
+  // started in. The reads make no automatic retry, so that a failed one draws the kept copy at
+  // once (S-19).
   let opening = 0;
   async function reload(): Promise<void> {
     const mine = ++opening;
+    const life = lifetime();
     const answers = await Promise.all([
       client.from('bookmarks').select('item_id,title,link,summary').order('created_at', { ascending: false }).retry(false),
       client.from('feed').select('*').retry(false),
       client.from('categories').select('id,name').retry(false),
     ]).catch(() => null);
-    if (mine !== opening) return;
+    if (mine !== opening || life !== lifetime()) return;
     const [bookmarks, feed, categories] = answers ?? [];
     const read = !(!bookmarks || !feed || !categories || bookmarks.error || feed.error || categories.error);
     const kept = read ? null : bookmarksCopy();

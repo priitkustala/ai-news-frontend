@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el, icon } from '../dom.js';
 import { announce } from '../status.js';
-import { bookmarksCopy, saveBookmarks } from '../offline/index.js';
+import { bookmarksCopy, lifetime, saveBookmarks } from '../offline/index.js';
 
 // The fields a bookmark row keeps of its item (Locked, Data model: title, link, summary as shown).
 export interface BookmarkSubject {
@@ -82,7 +82,8 @@ async function remove(id: string): Promise<boolean> {
   }
 }
 
-// The control of one item; a tap while its write is open is ignored.
+// The control of one item; a tap while its write is open is ignored. An answer arriving after
+// sign-out changes nothing.
 export function bookmarkControl(row: BookmarkSubject): HTMLButtonElement {
   const control = el('button', { type: 'button', class: CONTROL, 'data-testid': 'feed-item-bookmark', 'data-item-id': row.id }, icon(22, BOOKMARK));
   draw(control);
@@ -91,8 +92,10 @@ export function bookmarkControl(row: BookmarkSubject): HTMLButtonElement {
     if (busy) return;
     busy = true;
     const was = saved.has(row.id);
+    const life = lifetime();
     const done = await (was ? remove(row.id) : add(row));
     busy = false;
+    if (life !== lifetime()) return;
     if (!done) {
       announce(FAILED);
       return;

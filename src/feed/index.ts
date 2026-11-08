@@ -27,6 +27,7 @@ import {
   ERROR,
   errorState,
   feedCopy,
+  lifetime,
   OFFLINE_FEED,
   offlineBanner,
   reachable,
@@ -292,12 +293,16 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
   };
   const retry = retryButton();
   const error = errorState(retry);
-  const first = () =>
-    load(client).then((copy) => {
+  // A first read answered after sign-out draws and keeps nothing.
+  const first = () => {
+    const life = lifetime();
+    return load(client).then((copy) => {
+      if (life !== lifetime()) return;
       setMode('online');
       saveFeed(copy);
       draw(copy, null);
     });
+  };
   // A failed first read: the kept copy under the state, or the state over the failure text.
   const unreached = async () => {
     const offline = !(await reachable());
