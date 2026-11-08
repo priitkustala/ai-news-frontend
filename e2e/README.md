@@ -76,6 +76,9 @@ npx playwright test                           # full suite
 - Elements are found by `data-testid` only. Waits are assertions, never fixed sleeps.
 - No `.only`, `.skip` or `.fixme`. A scenario is never weakened, skipped or deleted to
   get a pass.
+- CHAIN-01 (`tests/chained-journey/`, tag `@journey-chained`, owning item
+  priitkustala/ai-news#80) is the one chained journey scenario: it stands outside the
+  coverage matrix and runs in the full suite like every row.
 
 ## Journeys and their tags
 
