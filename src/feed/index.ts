@@ -15,7 +15,9 @@
 // (priitkustala/ai-news-frontend#4, S-19, src/offline); when the first read fails, the kept copy is
 // drawn as a first read draws it, with the Offline banner (artboard 06) or the Error state and its
 // Retry (artboard 05) between last-updated and the filter. Every stored text is set as a text
-// node, never as markup (B-03).
+// node, never as markup (B-03). A Reddit row (priitkustala/ai-news#44, S-07) draws artboard 09:
+// the community in place of the source, the poster and the from Reddit label in place of the
+// summary, and the links to the Reddit post and the external page in place of the original.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookmarkControl } from '../bookmarks/control.js';
 import { el, icon } from '../dom.js';
@@ -48,7 +50,15 @@ export interface FeedRow {
   image_url: string | null;
   image_policy: string | null;
   published_at: string;
+  // The Reddit fields of the feed view (S-07); null on a row of a news feed.
+  source_type: string | null;
+  community: string | null;
+  post_url: string | null;
+  external_url: string | null;
+  author_handle: string | null;
 }
+
+const isReddit = (row: FeedRow) => row.source_type === 'reddit';
 
 // The last completed run: the ingestion_runs row with status completed and the latest ended_at
 // (a row without ended_at never outranks one with it; run_date breaks a tie).
@@ -86,10 +96,13 @@ const ANTHROPIC_MIRROR = 'anthropic-news-mirror';
 
 function metaLine(row: FeedRow, categoryName: string): HTMLElement {
   const shown = row.source_id === ANTHROPIC_MIRROR ? shownDay(row.published_at) : shownTime(row.published_at);
+  const source = isReddit(row)
+    ? el('span', { class: 'font-bold text-[#1A1C21]', 'data-testid': 'feed-item-community' }, `r/${row.community ?? ''}`)
+    : el('span', { 'data-testid': 'feed-item-source' }, row.source_name);
   return el(
     'p',
     { class: 'text-[13px] text-muted-foreground' },
-    el('span', { 'data-testid': 'feed-item-source' }, row.source_name),
+    source,
     ' · ',
     el('span', { class: `font-semibold ${CATEGORY_TEXT[row.category] ?? CATEGORY_TEXT.other}`, 'data-testid': 'feed-item-category' }, categoryName),
     ' · ',
@@ -97,20 +110,45 @@ function metaLine(row: FeedRow, categoryName: string): HTMLElement {
   );
 }
 
-function originalLink(row: FeedRow): HTMLElement | null {
-  const url = webAddress(row.canonical_url);
-  if (!url) return null;
+// A link out of the app: only an http or https address, in a new tab, with no opener or referrer.
+// The text is the given words, or the address's host without www.
+function outLink(address: string | null, testid: string, words?: string): HTMLElement | null {
+  const url = address === null ? null : webAddress(address);
+  if (address === null || !url) return null;
   return el(
     'a',
     {
       class: 'inline-flex min-h-8 min-w-11 items-center gap-1 self-start px-1.5 text-sm text-primary',
-      href: row.canonical_url,
+      href: address,
       target: '_blank',
       rel: 'noopener noreferrer',
-      'data-testid': 'feed-item-original',
+      'data-testid': testid,
     },
-    url.hostname.replace(/^www\./, ''),
+    words ?? url.hostname.replace(/^www\./, ''),
     icon(16, EXTERNAL),
+  );
+}
+
+// The links of an item's last row: the original, or for a Reddit row the post and the external page.
+function links(row: FeedRow): HTMLElement[] {
+  const shown = isReddit(row)
+    ? [outLink(row.post_url, 'feed-item-post-link', 'Reddit post'), outLink(row.external_url, 'feed-item-external-link')]
+    : [outLink(row.canonical_url, 'feed-item-original')];
+  return shown.filter((node): node is HTMLElement => node !== null);
+}
+
+// The Reddit row's attribution (artboard 09): Posted by u/ and the poster's bare username where
+// the row has one, then the from Reddit label.
+function attribution(row: FeedRow): HTMLElement {
+  return el(
+    'p',
+    { class: 'text-[13px] text-muted-foreground' },
+    ...(row.author_handle ? ['Posted by u/', el('span', { 'data-testid': 'feed-item-author' }, row.author_handle), ' '] : []),
+    el(
+      'span',
+      { class: 'inline-block rounded-[4px] bg-[#FFE6DA] px-1.5 text-xs font-bold text-[#8A2E00]', 'data-testid': 'feed-item-reddit-label' },
+      'from Reddit',
+    ),
   );
 }
 
@@ -146,14 +184,16 @@ function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
 }
 
 // One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
-// last row holds the link to the original, then the bookmark control at the right (artboard 14).
+// last row holds the link to the original (a Reddit row: the post and external links), then the
+// bookmark control at the right (artboard 14).
 export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
   const title = headline(row, categoryName, open);
-  const summary = row.summary
-    ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
-    : null;
-  const link = originalLink(row);
-  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...(link ? [link] : []), bookmarkControl(row));
+  const summary = isReddit(row)
+    ? attribution(row)
+    : row.summary
+      ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
+      : null;
+  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row), bookmarkControl(row));
   const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
   const item = el('article', { 'data-testid': 'feed-item' });
   // Compact until a picture has loaded (S-09): pending, placeholder and failed keep this layout.
@@ -181,7 +221,7 @@ function lastUpdated(run: CompletedRun | null, now: number): HTMLElement {
   );
 }
 
-const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at';
+const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at,source_type,community,post_url,external_url,author_handle';
 
 // The feed view's rows in the view's order: every row for category null, otherwise that
 // category's rows only. Each selection of the filter reads the server again (AC-19).
