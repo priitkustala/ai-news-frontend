@@ -211,9 +211,17 @@ function needsRender(event: AuthChangeEvent, session: Session | null): boolean {
   return (session?.user.id ?? null) !== renderedUser;
 }
 
-async function sessionRefused(): Promise<boolean> {
-  const { error } = await client.auth.getUser();
-  return error !== null && error.status === 401;
+async function sessionRefused(session: Session): Promise<boolean> {
+  try {
+    const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: config.publishableKey, Authorization: `Bearer ${session.access_token}` },
+    });
+    if (response.ok) return false;
+    const body = (await response.json()) as { error_code?: string };
+    return body.error_code === 'bad_jwt';
+  } catch {
+    return false;
+  }
 }
 
 // A reload while the article view was open starts on the feed, without its history mark.
@@ -225,9 +233,9 @@ client.auth.onAuthStateChange((event, session) => {
   setTimeout(async () => {
     // A stored session is only a claim until the data service has seen it: after a restart the
     // stack no longer knows the session the browser kept, so a refused one goes to the sign-in screen.
-    // Only a 401 (the token's signature is not the stack's) counts; any other failure, offline included, keeps the
+    // Only a token the stack cannot verify (bad_jwt) counts; any other answer, offline included, keeps the
     // stored session, as the offline reading needs.
-    if (renderedUser === undefined && session && (await sessionRefused())) {
+    if (renderedUser === undefined && session && (await sessionRefused(session))) {
       await client.auth.signOut({ scope: 'local' });
       return;
     }
