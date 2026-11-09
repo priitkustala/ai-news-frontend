@@ -1,0 +1,58 @@
+name: Feature request
+description: Something AI News should do that it does not do yet.
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the idea. Answer every question; the team uses your answers to decide what to build first. The team makes the final decision.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: who
+    attributes:
+      label: Who has it
+      description: Which readers have this problem, and how often?
+    validations:
+      required: true
+  - type: textarea
+    id: want
+    attributes:
+      label: What they want
+      description: What would they like to be able to do?
+    validations:
+      required: true
+  - type: textarea
+    id: works
+    attributes:
+      label: How they would know it works
+      description: What would they see or be able to do once it works?
+    validations:
+      required: true
+  - type: dropdown
+    id: relevance
+    attributes:
+      label: Relevance
+      description: How close is this to what AI News is for (finding, reading and trusting AI news on an iPhone)?
+      options:
+        - "3 Core: it is about finding, reading or trusting the news"
+        - "2 Supporting: it helps the core but is not the core"
+        - "1 Peripheral or not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: importance
+    attributes:
+      label: Importance
+      description: How much does this matter to the people who read the news in the app?
+      options:
+        - "3 High: they cannot read, or they lose or see wrong things"
+        - "2 Medium: they are slowed or annoyed but can carry on"
+        - "1 Low: nice to have"
+    validations:
+      required: true

@@ -1,0 +1,65 @@
+name: Bug
+description: Something in AI News does not work as it should.
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. Answer every question; the team uses your answers to decide what to fix first. The team makes the final decision.
+  - type: textarea
+    id: precondition
+    attributes:
+      label: Precondition
+      description: What was the situation before it went wrong? For example, signed in or not, and what the screen showed.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: What did you do, one action per line, until the problem appeared?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: What happened? Quote any message exactly.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: A screenshot, a recording or a copied message. Leave out passwords and personal details.
+    validations:
+      required: true
+  - type: dropdown
+    id: relevance
+    attributes:
+      label: Relevance
+      description: How close is this to what AI News is for (finding, reading and trusting AI news on an iPhone)?
+      options:
+        - "3 Core: it is about finding, reading or trusting the news"
+        - "2 Supporting: it helps the core but is not the core"
+        - "1 Peripheral or not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: importance
+    attributes:
+      label: Importance
+      description: How much does this matter to the people who read the news in the app?
+      options:
+        - "3 High: they cannot read, or they lose or see wrong things"
+        - "2 Medium: they are slowed or annoyed but can carry on"
+        - "1 Low: nice to have"
+    validations:
+      required: true
