@@ -213,7 +213,7 @@ function needsRender(event: AuthChangeEvent, session: Session | null): boolean {
 
 async function sessionRefused(): Promise<boolean> {
   const { error } = await client.auth.getUser();
-  return error !== null && (error.status === 401 || error.status === 403);
+  return error !== null && error.status === 401;
 }
 
 // A reload while the article view was open starts on the feed, without its history mark.
@@ -225,7 +225,8 @@ client.auth.onAuthStateChange((event, session) => {
   setTimeout(async () => {
     // A stored session is only a claim until the data service has seen it: after a restart the
     // stack no longer knows the session the browser kept, so a refused one goes to the sign-in screen.
-    // A failure that is not a refusal (offline) keeps the stored session, as the offline reading needs.
+    // Only a 401 (the token's signature is not the stack's) counts; any other failure, offline included, keeps the
+    // stored session, as the offline reading needs.
     if (renderedUser === undefined && session && (await sessionRefused())) {
       await client.auth.signOut({ scope: 'local' });
       return;
