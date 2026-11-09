@@ -77,7 +77,11 @@ function signInScreen(): HTMLElement {
     const { error: failure } = await client.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
     submit.disabled = false;
     if (failure) {
-      error.textContent = 'Sign-in failed. Check the email and the password.';
+      // 401 is the data service refusing the app's key; any other failure keeps the old message.
+      error.textContent =
+        failure.status === 401
+          ? 'The app cannot reach its data service with its current key. Reload the page; if this stays, tell the owner.'
+          : 'Sign-in failed. Check the email and the password.';
       error.hidden = false;
       password.focus();
     }
@@ -207,13 +211,25 @@ function needsRender(event: AuthChangeEvent, session: Session | null): boolean {
   return (session?.user.id ?? null) !== renderedUser;
 }
 
+async function sessionRefused(): Promise<boolean> {
+  const { error } = await client.auth.getUser();
+  return error !== null && (error.status === 401 || error.status === 403);
+}
+
 // A reload while the article view was open starts on the feed, without its history mark.
 if (location.hash === '#article') history.replaceState(null, '', location.pathname + location.search);
 root.replaceChildren(...top());
 // The first event carries the stored session, if any.
 client.auth.onAuthStateChange((event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
-  setTimeout(() => {
+  setTimeout(async () => {
+    // A stored session is only a claim until the data service has seen it: after a restart the
+    // stack no longer knows the session the browser kept, so a refused one goes to the sign-in screen.
+    // A failure that is not a refusal (offline) keeps the stored session, as the offline reading needs.
+    if (renderedUser === undefined && session && (await sessionRefused())) {
+      await client.auth.signOut({ scope: 'local' });
+      return;
+    }
     if (needsRender(event, session)) render(session);
   }, 0);
 });
