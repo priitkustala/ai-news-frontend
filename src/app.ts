@@ -228,16 +228,24 @@ async function sessionRefused(session: Session): Promise<boolean> {
 if (location.hash === '#article') history.replaceState(null, '', location.pathname + location.search);
 root.replaceChildren(...top());
 // The first event carries the stored session, if any.
+// Counts the auth events delivered. A check of a stored session that was started before a newer event is stale
+// when its answer arrives: the newer event has already rendered, so the stale answer does nothing.
+let authGeneration = 0;
 client.auth.onAuthStateChange((event, session) => {
+  const generation = ++authGeneration;
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
   setTimeout(async () => {
     // A stored session is only a claim until the data service has seen it: after a restart the
     // stack no longer knows the session the browser kept, so a refused one goes to the sign-in screen.
     // Only a token the stack cannot verify (bad_jwt) counts; any other answer, offline included, keeps the
     // stored session, as the offline reading needs.
-    if (renderedUser === undefined && session && (await sessionRefused(session))) {
-      await client.auth.signOut({ scope: 'local' });
-      return;
+    if (renderedUser === undefined && session) {
+      const refused = await sessionRefused(session);
+      if (generation !== authGeneration) return;
+      if (refused) {
+        await client.auth.signOut({ scope: 'local' });
+        return;
+      }
     }
     if (needsRender(event, session)) render(session);
   }, 0);
