@@ -51,6 +51,9 @@ holds the key keeps working until priitkustala/ai-news#94. In a story's own inst
 | `E2E_FIXTURE_FEED_URL` | `http://ai-news-feeds:8081/feeds/techcrunch-ai.xml` (the backend's fixture feed server; no scenario of this repository reads it, and it is on the backend's internal network only) |
 | `E2E_OD08` | `undecided` (OD-08 is open; no scenario of this repository reads it) |
 | `E2E_RUN_TIME_ZONE` | `UTC` (a test variable; OD-09 stays open) |
+| `E2E_SMOKE_EMAIL` | the smoke user's e-mail (section Smoke); local value: the `second-user` entry of `scripts/personas.json`, set in the environment of the run only, never in a file |
+| `E2E_SMOKE_PASSWORD` | the smoke user's password (section Smoke); local value: the `second-user` entry of `scripts/personas.json`, set in the environment of the run only, never in a file |
+| `E2E_SMOKE_MAX_RUN_AGE_DAYS` | the freshness window of the smoke row 53-SMOKE-c in days; default `1` |
 
 ## Run
 
@@ -60,6 +63,56 @@ npx playwright install webkit        # once per machine; ask before installing
 npx playwright test --grep "@story-<n>"      # scoped
 npx playwright test                           # full suite
 ```
+
+## Smoke
+
+The smoke subset (priitkustala/ai-news#53) is the seven scenarios tagged `@tier-smoke`. They run
+against the hosted app after every deploy of the client or of the ingestion job, from the reusable
+workflow `.github/workflows/smoke.yml`, which the deploy workflows call; a caller's job that needs
+it fails when a smoke row fails, and that marks the deploy failed.
+
+- What runs: `npx playwright test --grep @tier-smoke --trace off`. The rows: the client page loads
+  at iPhone size with its manifest (40f), the manifest has display standalone (AC-23a), the service
+  worker registers (AC-23b), without a session nothing personal is read and a bookmark write is
+  refused (53-SMOKE-b), the newest completed ingestion run is within the window (53-SMOKE-c), the
+  smoke user signs in and the feed shows an item (53-SMOKE-d), and a bookmark write with the smoke
+  session is refused (53-SMOKE-e).
+- The smoke user is a signed-in user who is not the owner: it reads the news, reads no bookmark or
+  push subscription, and every write of it is refused. Locally its stand-in is the seeded persona
+  `second-user`.
+- The freshness row 53-SMOKE-c reads the last-updated columns of `ingestion_runs` as a visitor, with
+  the publishable key and no session: ai-news-backend#47 grants those columns to visitors only. On
+  the hosted project it works only while guest reading is open there.
+- Nothing is written: the rows only read, a refused bookmark insert is their only write attempt, and
+  no row seeds, runs a job command or uses the development sign-in.
+- The workflow's inputs: `app_url` (required, the hosted client's address) and `max_run_age_days`
+  (default `1`). It runs on `workflow_call` and, with the same inputs, on `workflow_dispatch`.
+- Its secrets: `SMOKE_DATA_URL`, `SMOKE_PUBLISHABLE_KEY`, `SMOKE_EMAIL` and `SMOKE_PASSWORD`. The
+  owner sets them; no value stands in any file.
+- No trace and no artifact: the repository is public and its workflow logs are readable by anyone,
+  and a trace would record the typed password and the session token.
+- No manual step: the workflow runs after the deploy without a person.
+
+A local smoke run sets `E2E_SMOKE_EMAIL` and `E2E_SMOKE_PASSWORD` from the `second-user` entry of
+`scripts/personas.json` in the same shell command that runs Playwright, never printed:
+
+```
+E2E_SMOKE_EMAIL="$(node -p "require('../scripts/personas.json')['second-user'].email")" \
+E2E_SMOKE_PASSWORD="$(node -p "require('../scripts/personas.json')['second-user'].password")" \
+npx playwright test --grep @tier-smoke
+```
+
+## Release gate run
+
+At the release gate (regression contract, Release gate) both full suites run on the laptop against
+the local stack with seeded data, with traces and the html report:
+
+| Suite | Where | Command | Report |
+|---|---|---|---|
+| frontend | this repository's box, `e2e/` | `npx playwright test --trace on --reporter=line,html`, with `E2E_SMOKE_EMAIL` and `E2E_SMOKE_PASSWORD` set in the same command as in section Smoke (the smoke rows are part of the full suite) | `e2e/playwright-report/` (open with `npx playwright show-report`), traces in `e2e/test-results/` |
+| backend | ai-news-backend's box, `e2e/` | `npx playwright test --trace on --reporter=line,html` | `e2e/playwright-report/` of ai-news-backend, traces in its `e2e/test-results/` |
+
+The owner opens the traces and decides. An agent's run is evidence, not the decision.
 
 ## Conventions
 
