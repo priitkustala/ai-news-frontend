@@ -9,7 +9,7 @@ import { fetchManifest } from '../../support/platform';
 
 test(
   'AC-23a: the served manifest has display standalone',
-  { tag: ['@journey-install', '@surface-app', '@story-3'] },
+  { tag: ['@journey-install', '@surface-app', '@story-3', '@tier-smoke'] },
   async ({ page, request }) => {
     // Given: the client served on localhost
     // When: the page loads

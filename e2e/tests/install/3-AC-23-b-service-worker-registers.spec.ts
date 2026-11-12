@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 
 test(
   'AC-23b: the service worker registers on localhost',
-  { tag: ['@journey-install', '@surface-app', '@story-3'] },
+  { tag: ['@journey-install', '@surface-app', '@story-3', '@tier-smoke'] },
   async ({ page }) => {
     // Given: the client served on localhost (a secure context)
     // When: the page loads
