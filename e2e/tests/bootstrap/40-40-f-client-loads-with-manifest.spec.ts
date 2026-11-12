@@ -9,7 +9,7 @@ import { fetchManifest } from '../../support/platform';
 
 test(
   '40f: the client page loads at iPhone size with its manifest',
-  { tag: ['@journey-bootstrap', '@surface-app', '@story-40'] },
+  { tag: ['@journey-bootstrap', '@surface-app', '@story-40', '@tier-smoke'] },
   async ({ page, request }) => {
     // Given: the built client served on localhost (E2E_BASE_URL)
     // When: the page is opened in Playwright's iPhone profile

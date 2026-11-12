@@ -1,0 +1,70 @@
+# Production smoke suite (priitkustala/ai-news#53): the scenarios tagged @tier-smoke against the hosted
+# app, after every deploy of the client or the ingestion job. A deploy workflow calls it as a reusable
+# workflow; a caller's job that needs it fails when a smoke row fails, which marks the deploy failed.
+# It reads only: no seed, no development sign-in, no job command; a refused bookmark insert is its only
+# write attempt. This repository is public and its logs are readable by anyone, so the run keeps no
+# trace, uploads no artifact and prints no variable. The owner sets the four secrets.
+name: smoke
+
+on:
+  workflow_call:
+    inputs:
+      app_url:
+        description: The hosted client's address
+        type: string
+        required: true
+      max_run_age_days:
+        description: The freshness window in days for the newest completed ingestion run
+        type: string
+        default: '1'
+    secrets:
+      SMOKE_DATA_URL:
+        required: true
+      SMOKE_PUBLISHABLE_KEY:
+        required: true
+      SMOKE_EMAIL:
+        required: true
+      SMOKE_PASSWORD:
+        required: true
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: The hosted client's address
+        type: string
+        required: true
+      max_run_age_days:
+        description: The freshness window in days for the newest completed ingestion run
+        type: string
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install the pinned test runner
+        working-directory: e2e
+        run: npm ci
+      - name: Install WebKit
+        working-directory: e2e
+        run: npx playwright install --with-deps webkit
+      - name: Run the smoke rows
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: ${{ inputs.app_url }}
+          E2E_DATA_URL: ${{ secrets.SMOKE_DATA_URL }}
+          E2E_PUBLISHABLE_KEY: ${{ secrets.SMOKE_PUBLISHABLE_KEY }}
+          E2E_SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          E2E_SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          E2E_SMOKE_MAX_RUN_AGE_DAYS: ${{ inputs.max_run_age_days }}
+          E2E_RUN_TIME_ZONE: UTC
+        run: npx playwright test --grep @tier-smoke --trace off
