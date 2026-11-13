@@ -1,0 +1,172 @@
+# Release path of the client (priitkustala/ai-news#56): every push to main, or a dispatch, builds the
+# app for the hosted project, deploys it to its own Firebase Hosting preview channel run-<run number>,
+# runs the smoke workflow of #53 against that preview address, and waits for the owner's approval in the
+# environment production; only then does the exact build of that channel become the live site, after the
+# previous live release is kept in the channel previous-live for rollback.yml. One release at a time.
+# This repository is public and its logs are readable by anyone: values reach the steps only through env,
+# the deploy key lives only in the runner's memory filesystem and is removed at the end of each job, and
+# nothing prints a secret. The owner sets the secrets and the variables; no agent dispatches or approves.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      max_run_age_days:
+        description: The smoke run's freshness window in days for the newest completed ingestion run
+        type: string
+        default: '1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-24.04
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install the app's dependencies
+        run: npm ci --ignore-scripts
+      - name: Build for the hosted project
+        env:
+          AI_NEWS_BUILD_TARGET: hosted
+          SMOKE_DATA_URL: ${{ secrets.SMOKE_DATA_URL }}
+          PUBLISHABLE_KEY: ${{ secrets.SMOKE_PUBLISHABLE_KEY }}
+        run: |
+          data_url="${SMOKE_DATA_URL%/}"
+          SUPABASE_URL="${data_url%/rest/v1}" npm run build
+      - name: Install the pinned Firebase CLI
+        working-directory: release
+        run: npm ci --ignore-scripts
+      - name: Write the deploy key into memory
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > /dev/shm/ai-news-release-key.json
+      - name: Deploy to the preview channel
+        id: deploy
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /dev/shm/ai-news-release-key.json
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID }}
+        run: |
+          result="$RUNNER_TEMP/channel-deploy.json"
+          if ! release/node_modules/.bin/firebase hosting:channel:deploy "run-$GITHUB_RUN_NUMBER" \
+            --expires 7d --no-authorized-domains --project "$FIREBASE_PROJECT_ID" --json > "$result"; then
+            node -e 'try { console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).error) } catch { console.log("no JSON result") }' "$result"
+            exit 1
+          fi
+          url=$(node -e '
+            const out = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const sites = Object.values(out.result ?? {});
+            if (out.status !== "success" || sites.length !== 1) throw new Error("expected one deployed site");
+            if (sites[0].site !== process.env.FIREBASE_SITE_ID) throw new Error("the deployed site is not FIREBASE_SITE_ID");
+            if (!/^https:\/\/\S+$/.test(sites[0].url ?? "")) throw new Error("the channel has no https address");
+            console.log(sites[0].url);
+          ' "$result")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f /dev/shm/ai-news-release-key.json
+
+  smoke:
+    needs: preview
+    uses: ./.github/workflows/smoke.yml
+    with:
+      app_url: ${{ needs.preview.outputs.url }}
+      max_run_age_days: ${{ inputs.max_run_age_days || '1' }}
+    secrets:
+      SMOKE_DATA_URL: ${{ secrets.SMOKE_DATA_URL }}
+      SMOKE_PUBLISHABLE_KEY: ${{ secrets.SMOKE_PUBLISHABLE_KEY }}
+      SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+      SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+
+  promote:
+    needs: [preview, smoke]
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Guard, the environment production requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if found=$(gh api "repos/$GITHUB_REPOSITORY/environments/production" \
+            --jq 'any(.protection_rules[]?; .type == "required_reviewers")' 2>/dev/null) && [ "$found" = true ]; then
+            echo yes
+          else
+            echo no
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install the pinned Firebase CLI
+        working-directory: release
+        run: npm ci --ignore-scripts
+      - name: Write the deploy key into memory
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > /dev/shm/ai-news-release-key.json
+      - name: Keep the live release in previous-live
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /dev/shm/ai-news-release-key.json
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID }}
+        run: |
+          firebase=release/node_modules/.bin/firebase
+          channels="$RUNNER_TEMP/channels.json"
+          if ! "$firebase" hosting:channel:list --site "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT_ID" --json > "$channels"; then
+            node -e 'try { console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).error) } catch { console.log("no JSON result") }' "$channels"
+            exit 1
+          fi
+          state=$(node -e '
+            const out = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            if (out.status !== "success" || !Array.isArray(out.result?.channels)) throw new Error("no channel list");
+            const byId = (id) => out.result.channels.find((channel) => channel.name.split("/").pop() === id);
+            console.log(byId("live")?.release?.version?.name ? "yes" : "no", byId("previous-live") ? "yes" : "no");
+          ' "$channels")
+          read -r live_release previous_exists <<< "$state"
+          if [ "$live_release" = no ]; then
+            echo "no live release to keep (first promotion)"
+            exit 0
+          fi
+          if [ "$previous_exists" = yes ]; then
+            "$firebase" hosting:channel:delete previous-live --site "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT_ID" --force --non-interactive
+          fi
+          "$firebase" hosting:channel:create previous-live --expires 30d --site "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT_ID" --non-interactive
+          "$firebase" hosting:clone "$FIREBASE_SITE_ID:live" "$FIREBASE_SITE_ID:previous-live" --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - name: Promote the approved build to live
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /dev/shm/ai-news-release-key.json
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID }}
+        run: |
+          release/node_modules/.bin/firebase hosting:clone "$FIREBASE_SITE_ID:run-$GITHUB_RUN_NUMBER" "$FIREBASE_SITE_ID:live" \
+            --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f /dev/shm/ai-news-release-key.json
