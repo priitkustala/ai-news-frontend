@@ -4,6 +4,8 @@
 // environment or the git-ignored .env.local at the repository root; the build refuses a
 // secret key and an address outside the local stack, so only local values reach the client;
 // the client reads config.js only through src/config, which refuses a non-publishable key (#43).
+// With AI_NEWS_BUILD_TARGET=hosted (the release workflow, priitkustala/ai-news#56) SUPABASE_URL must be
+// an https address of any host and the build line prints no address; absent or local keeps the local checks.
 // It also fills the Content-Security-Policy img-src of index.html with the image hosts of
 // src/config/images.ts, as tsc compiled it (priitkustala/ai-news#46, S-09 plan step 4), and
 // writes into dist/sw.js the list of the files its install stores for offline reading and the
@@ -28,9 +30,17 @@ const publishableKey = process.env.PUBLISHABLE_KEY ?? '';
 if (!supabaseUrl) fail('SUPABASE_URL is not set (the local interface address; see e2e/README.md, Variables).');
 if (!publishableKey) fail('PUBLISHABLE_KEY is not set (the local publishable key; see e2e/README.md, Variables).');
 if (!publishableKey.startsWith('sb_publishable_')) fail('PUBLISHABLE_KEY is not a publishable key; nothing else may enter the client.');
-const host = new URL(supabaseUrl).hostname;
-if (!['ai-news-api', 'localhost', '127.0.0.1'].includes(host)) {
-  fail(`SUPABASE_URL host ${host} is not the local stack; this build is for the local test environment only.`);
+const target = process.env.AI_NEWS_BUILD_TARGET || 'local';
+if (!['local', 'hosted'].includes(target)) fail(`AI_NEWS_BUILD_TARGET ${target} is not one of local or hosted.`);
+if (target === 'hosted') {
+  if (!URL.canParse(supabaseUrl) || new URL(supabaseUrl).protocol !== 'https:') {
+    fail('SUPABASE_URL is not an https address; the hosted build needs the hosted interface over https.');
+  }
+} else {
+  const host = new URL(supabaseUrl).hostname;
+  if (!['ai-news-api', 'localhost', '127.0.0.1'].includes(host)) {
+    fail(`SUPABASE_URL host ${host} is not the local stack; this build is for the local test environment only.`);
+  }
 }
 
 fs.cpSync(path.join(root, 'public'), dist, { recursive: true });
@@ -75,4 +85,4 @@ const shellCache = `ai-news-shell-${digest.digest('hex').slice(0, 12)}`;
 const shellPaths = shellFiles.map((file) => (file === 'index.html' ? '/' : `/${file}`));
 fs.writeFileSync(swFile, sw.replace("'{{SHELL_CACHE}}'", JSON.stringify(shellCache)).replace('{{SHELL_FILES}}', JSON.stringify(shellPaths)));
 
-console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${supabaseUrl}; img-src 'self' ${imageHosts.join(' ')}; ${shellPaths.length} shell files)`);
+console.log(`build: wrote ${path.relative(root, dist)}/ (interface ${target === 'hosted' ? 'hosted' : supabaseUrl}; img-src 'self' ${imageHosts.join(' ')}; ${shellPaths.length} shell files)`);
