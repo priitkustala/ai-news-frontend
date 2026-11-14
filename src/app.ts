@@ -7,7 +7,8 @@
 // with priitkustala/ai-news#51 (src/bookmarks, the Feed and Bookmarks tabs of src/nav.ts and the
 // status message of src/status.ts); in the Home Screen web app the feed carries the daily
 // notification's subscribe card (priitkustala/ai-news#50, src/push); the rest arrive with their
-// own stories.
+// own stories. Without a session a visitor reads the feed and the article view, with no owner
+// control, and the Bookmarks tab asks for sign-in (priitkustala/ai-news-frontend#44, S-21b).
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
 import { refreshBookmarks } from './bookmarks/control.js';
@@ -30,8 +31,8 @@ const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, 
 
 const root = document.getElementById('app') as HTMLElement;
 // The tab bar and the status message stand outside #app, so that they survive every render and
-// stay over the article view (artboard 11); the bar shows with a session only. The page's bottom
-// padding keeps the last item and sign-out above the bar.
+// stay over the article view (artboard 11); the bar shows from the first render on, with or
+// without a session. The page's bottom padding keeps the last item and sign-out above the bar.
 const bar = tabBar(selectTab);
 bar.hidden = true;
 document.body.append(bar, statusRegion());
@@ -41,7 +42,8 @@ function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
 }
 
-function signInScreen(): HTMLElement {
+// The sign-in card, behind a visitor's Bookmarks tab.
+function signInCard(): HTMLElement {
   const email = el('input', {
     id: 'sign-in-email',
     type: 'email',
@@ -88,12 +90,12 @@ function signInScreen(): HTMLElement {
   });
 
   return el(
-    'main',
+    'div',
     { class: 'flex flex-1 flex-col px-4' },
     el(
       'section',
       { class: 'card mt-6' },
-      el('header', {}, el('h2', {}, 'Sign in'), el('p', {}, 'Sign in to read your AI news.')),
+      el('header', {}, el('h2', {}, 'Sign in'), el('p', { 'data-testid': 'sign-in-reason' }, 'Sign in to keep your bookmarks.')),
       el('section', {}, form),
     ),
   );
@@ -125,26 +127,28 @@ function openArticle(row: FeedRow, categoryName: string): void {
 history.scrollRestoration = 'manual';
 window.addEventListener('popstate', () => closeArticle?.());
 
-// The Bookmarks panel of the signed-in screen, the tab shown and the feed's place while
+// The two panels of the screen shown: the feed and, behind the Bookmarks tab, the owner's
+// Bookmarks panel or a visitor's sign-in card (reload draws the panel's content at every opening,
+// leave clears it on the way back to the feed); then the tab shown and the feed's place while
 // Bookmarks is shown.
-let bookmarks: ReturnType<typeof bookmarksPanel> | null = null;
+let panels: { feed: HTMLElement; bookmarks: HTMLElement; reload: () => void; leave: () => void } | null = null;
 let shownTab: Tab = 'feed';
 let feedScroll = 0;
 
 function showTab(tab: Tab): void {
-  if (!bookmarks) return;
-  const feed = bookmarks.panel.previousElementSibling as HTMLElement | null;
+  if (!panels) return;
   const title = root.querySelector('header h1');
   if (tab === 'bookmarks') {
     if (shownTab === 'feed') feedScroll = window.scrollY;
-    if (feed) feed.hidden = true;
-    bookmarks.panel.hidden = false;
+    panels.feed.hidden = true;
+    panels.bookmarks.hidden = false;
     if (title) title.textContent = 'Bookmarks';
     window.scrollTo(0, 0);
-    void bookmarks.reload();
+    panels.reload();
   } else {
-    if (feed) feed.hidden = false;
-    bookmarks.panel.hidden = true;
+    panels.feed.hidden = false;
+    panels.bookmarks.hidden = true;
+    panels.leave();
     if (title) title.textContent = 'AI news';
     if (shownTab === 'bookmarks') window.scrollTo(0, feedScroll);
   }
@@ -168,15 +172,27 @@ function signedInScreen(): HTMLElement {
   signOut.addEventListener('click', () => {
     void client.auth.signOut();
   });
-  bookmarks = bookmarksPanel(client, openArticle);
+  const feed = feedScreen(client, openArticle, pushControl(client));
+  const bookmarks = bookmarksPanel(client, openArticle);
   bookmarks.panel.hidden = true;
+  panels = { feed, bookmarks: bookmarks.panel, reload: () => void bookmarks.reload(), leave: () => undefined };
   return el(
     'main',
     { class: 'flex flex-1 flex-col', 'data-testid': 'signed-in' },
-    feedScreen(client, openArticle, pushControl(client)),
+    feed,
     bookmarks.panel,
     el('footer', { class: 'flex justify-center px-4 py-6' }, signOut),
   );
+}
+
+// A visitor's screen: the feed with no bookmark control and no push card, and behind the Bookmarks
+// tab the sign-in card, drawn only while that tab is shown, so the feed screen holds no sign-in form.
+// No bookmark or push read is made without a session.
+function guestScreen(): HTMLElement {
+  const feed = feedScreen(client, openArticle, null, true);
+  const signIn = el('div', { class: 'flex flex-1 flex-col', hidden: '' });
+  panels = { feed, bookmarks: signIn, reload: () => signIn.replaceChildren(signInCard()), leave: () => signIn.replaceChildren() };
+  return el('main', { class: 'flex flex-1 flex-col' }, feed, signIn);
 }
 
 // The app bar, then the install hint in a Safari tab only (absent in the Home Screen web app).
@@ -185,20 +201,27 @@ function top(): HTMLElement[] {
   return hint ? [appBar(), hint] : [appBar()];
 }
 
-// The user whose screen is shown: undefined before the first event, null on the sign-in screen.
+// The user whose screen is shown: undefined before the first event, null on a visitor's screen.
 let renderedUser: string | null | undefined;
 
 function render(session: Session | null): void {
+  // A sign-in from a visitor's Bookmarks tab lands on the owner's Bookmarks panel; every other
+  // render starts on the Feed tab.
+  const landing: Tab = session && renderedUser === null && shownTab === 'bookmarks' ? 'bookmarks' : 'feed';
   closeArticle = null;
   renderedUser = session?.user.id ?? null;
-  bookmarks = null;
+  panels = null;
   shownTab = 'feed';
   markTab(bar, 'feed');
-  bar.hidden = !session;
+  bar.hidden = false;
   if (!session) clearOffline();
   // The bookmarks read goes out before the feed's, so the controls are drawn from it.
   if (session) void refreshBookmarks(client);
-  root.replaceChildren(...top(), session ? signedInScreen() : signInScreen());
+  root.replaceChildren(...top(), session ? signedInScreen() : guestScreen());
+  if (landing === 'bookmarks') {
+    markTab(bar, 'bookmarks');
+    showTab('bookmarks');
+  }
 }
 
 // The first event and SIGNED_OUT always render. With a stored session the first event is the
@@ -236,7 +259,7 @@ client.auth.onAuthStateChange((event, session) => {
   // Rendering inside the callback must not await other auth calls (supabase-js guidance).
   setTimeout(async () => {
     // A stored session is only a claim until the data service has seen it: after a restart the
-    // stack no longer knows the session the browser kept, so a refused one goes to the sign-in screen.
+    // stack no longer knows the session the browser kept, so a refused one goes to a visitor's screen.
     // Only a token the stack cannot verify (bad_jwt) counts; any other answer, offline included, keeps the
     // stored session, as the offline reading needs.
     if (renderedUser === undefined && session) {
