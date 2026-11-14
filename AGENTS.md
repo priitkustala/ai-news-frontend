@@ -9,7 +9,7 @@ The iPhone app of ai-news: the owner reads AI-specific news in it. It talks to t
 
 - Language/runtime: TypeScript, compiled by tsc 7.0.2, for the browser; a plain installable browser client (OD-06 A); the scripts run on Node 22 (OD-03)
 - Frameworks: none; Tailwind CSS 4.3.3 with basecoat-css 1.0.2 (OD-45); @supabase/supabase-js 2.117.2 for the data interface and sign-in
-- Deployment: the static files of `dist/`; the release host (Firebase Hosting, OD-22) is set up at Release and run; nothing is deployed by #40
+- Deployment: the static files of `dist/` on Firebase Hosting (OD-22), released only by the workflow `.github/workflows/release.yml` behind the owner's approval (priitkustala/ai-news#56; section Release and rollback)
 - Owning team: ai-news; team context: `ai-news-team-context`
 
 ## Build, Test, Run
@@ -85,6 +85,44 @@ f=<folder>; b=<backend>
   echo "E2E_RUN_TIME_ZONE=UTC"
 } > $f/.env.local) && grep -v '^#' $f/.env.local | cut -d= -f1
 ```
+
+## Release and rollback
+
+Set up by priitkustala/ai-news#56. The Firebase CLI is firebase-tools 15.33.0, pinned in its own
+folder `release/` (`release/package.json` and its lockfile) and always called as
+`release/node_modules/.bin/firebase` from the repository root.
+
+How a release runs (`.github/workflows/release.yml`, on a push to `main` or a dispatch; one release
+at a time, the concurrency group `release`):
+
+1. `preview`: builds the app with `AI_NEWS_BUILD_TARGET=hosted` (the build then needs an https
+   `SUPABASE_URL` of any host and prints no address; without the variable, or with `local`, the build
+   keeps its local checks) and deploys it to its own preview channel `run-<run number>` (7 days).
+2. `smoke`: the smoke workflow of #53 (`smoke.yml`) against the preview address; a red smoke run ends
+   the release.
+3. `promote`: waits for the owner's approval in the environment `production`, keeps the live release
+   in the channel `previous-live`, then copies that exact preview build to the live site.
+
+The rollback is the workflow `.github/workflows/rollback.yml`. A person starts it with
+`gh workflow run rollback.yml --repo priitkustala/ai-news-frontend` (or the Run workflow button of
+rollback on the Actions page), and it runs after the owner's approval in `production`. It runs
+exactly this command, with the ids from the repository variables:
+
+```
+release/node_modules/.bin/firebase hosting:clone "$FIREBASE_SITE_ID:previous-live" "$FIREBASE_SITE_ID:live" --project "$FIREBASE_PROJECT_ID" --non-interactive
+```
+
+Its input `target_channel` (default `live`) names another channel for a drill, which then checks
+that the channel serves the same shell cache name as `previous-live` (`ROLLBACK CHECK equal`).
+
+- Rule: a person runs the rollback and approves every promotion; no agent dispatches a release or a rollback and no agent approves anything.
+- Window: the channel `previous-live` lives as long as its expiry, 30 days after each promotion (the
+  CLI's maximum); after that there is nothing to roll back to until the next promotion.
+- Secrets and variables, set by the owner in the repository settings (names only; no value is
+  written anywhere in this repository): the environment `production` with a required reviewer, the
+  secret `FIREBASE_SERVICE_ACCOUNT`, the variables `FIREBASE_PROJECT_ID` and `FIREBASE_SITE_ID`, and
+  the four smoke secrets of #53 (`SMOKE_DATA_URL`, `SMOKE_PUBLISHABLE_KEY`, `SMOKE_EMAIL`,
+  `SMOKE_PASSWORD`). Promotion and rollback refuse to run when `production` has no required reviewer.
 
 ## Protected Areas
 

@@ -1,0 +1,108 @@
+# Rollback of the client (priitkustala/ai-news#56): a person dispatches it, and it runs only after the
+# owner's approval in the environment production. It copies the release kept in the channel previous-live
+# (written by release.yml before each promotion) to the channel target_channel: live for a rollback, or
+# another channel for a drill, which then checks that the target serves the same shell cache name as
+# previous-live. No agent dispatches or approves it. Values reach the steps only through env; the deploy
+# key lives only in the runner's memory filesystem and is removed at the end.
+name: rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_channel:
+        description: The channel that receives previous-live (live for a rollback, another channel for a drill)
+        type: string
+        default: live
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Refuse a target channel outside lower-case letters, digits and hyphens
+        env:
+          TARGET_CHANNEL: ${{ inputs.target_channel }}
+        run: |
+          if [[ ! "$TARGET_CHANNEL" =~ ^[a-z0-9-]+$ ]]; then
+            echo "target_channel may hold only lower-case letters, digits and hyphens"
+            exit 1
+          fi
+      - name: Guard, the environment production requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if found=$(gh api "repos/$GITHUB_REPOSITORY/environments/production" \
+            --jq 'any(.protection_rules[]?; .type == "required_reviewers")' 2>/dev/null) && [ "$found" = true ]; then
+            echo yes
+          else
+            echo no
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install the pinned Firebase CLI
+        working-directory: release
+        run: npm ci --ignore-scripts
+      - name: Write the deploy key into memory
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          umask 077
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > /dev/shm/ai-news-release-key.json
+      - name: Copy previous-live to the target channel
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /dev/shm/ai-news-release-key.json
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID }}
+          TARGET_CHANNEL: ${{ inputs.target_channel }}
+        run: |
+          release/node_modules/.bin/firebase hosting:clone "$FIREBASE_SITE_ID:previous-live" "$FIREBASE_SITE_ID:$TARGET_CHANNEL" \
+            --project "$FIREBASE_PROJECT_ID" --non-interactive
+      - name: Drill check, the target serves the shell of previous-live
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /dev/shm/ai-news-release-key.json
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_SITE_ID: ${{ vars.FIREBASE_SITE_ID }}
+          TARGET_CHANNEL: ${{ inputs.target_channel }}
+        run: |
+          if [ "$TARGET_CHANNEL" = live ]; then
+            echo "target is live: no drill check"
+            exit 0
+          fi
+          channels="$RUNNER_TEMP/channels.json"
+          release/node_modules/.bin/firebase hosting:channel:list --site "$FIREBASE_SITE_ID" --project "$FIREBASE_PROJECT_ID" --json > "$channels"
+          urls=$(node -e '
+            const out = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            if (out.status !== "success" || !Array.isArray(out.result?.channels)) throw new Error("no channel list");
+            const url = (id) => out.result.channels.find((channel) => channel.name.split("/").pop() === id)?.url;
+            const pair = [url("previous-live"), url(process.env.TARGET_CHANNEL)];
+            if (!pair.every((u) => /^https:\/\/\S+$/.test(u ?? ""))) throw new Error("a channel has no https address");
+            console.log(pair.join(" "));
+          ' "$channels")
+          read -r previous_url target_url <<< "$urls"
+          previous_cache=$(curl -fsS "$previous_url/sw.js" | grep -m1 '^const SHELL_CACHE = ' || true)
+          target_cache=$(curl -fsS "$target_url/sw.js" | grep -m1 '^const SHELL_CACHE = ' || true)
+          if [ -n "$previous_cache" ] && [ "$previous_cache" = "$target_cache" ]; then
+            echo "ROLLBACK CHECK equal"
+          else
+            echo "ROLLBACK CHECK differ"
+            exit 1
+          fi
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f /dev/shm/ai-news-release-key.json
