@@ -1,11 +1,13 @@
 // AC-16d (scenario, @surface-app, project iphone): story 4, repair of the evaluator's finding F-S19-1
-// (evaluations/ai-news-app/S-19/round-01/S-19.md). Source: the approved settlement of S-19 (the owner's
-// bookmarks do not stay on a signed-out device) and the regression contract, Test integrity 2 (a defect is
-// reproduced as a failing scenario before its repair).
+// (evaluations/ai-news-app/S-19/round-01/S-19.md); rewritten by story S-21b (priitkustala/ai-news-frontend#44,
+// criterion AC-6): a visitor reads the feed, so sign-out shows the guest feed and only the bookmark copy goes.
+// Source: the approved settlement of S-19 (the owner's bookmarks do not stay on a signed-out device), the
+// regression contract, Test integrity 2 (a defect is reproduced as a failing scenario before its repair), and
+// the item's table of changed scenarios with the accepted settlement of S-21b.
 // Given the owner signed in with a bookmark, the feed and the Bookmarks panel loaded once online, when the
 // successful answers of the feed's first read, the Bookmarks panel's reads and a bookmark add are held
-// across sign-out and released once the sign-in screen shows, then neither offline-copy key is in
-// localStorage after they complete.
+// across sign-out and released once the guest feed shows, then the bookmark offline-copy key is not in
+// localStorage after they complete (the feed copy may remain: a visitor reads the feed).
 import type { Page, Request, Route } from '@playwright/test';
 import { test, expect } from '../../support/session';
 import { runMarker } from '../../support/env';
@@ -17,8 +19,9 @@ import { dataUrl } from '../../support/data';
 // WebKit's requests bypass page.route (S-09 finding B2).
 test.use({ serviceWorkers: 'block' });
 
-// The two keys of the device's copy, as src/offline/index.ts names them.
+// The two keys of the device's copy, as src/offline/index.ts names them; the bookmark copy's key.
 const KEYS = ['ai-news-offline-feed', 'ai-news-offline-bookmarks'];
+const BOOKMARKS_KEY = 'ai-news-offline-bookmarks';
 
 // The copy keys present in localStorage, read after the page has had a turn to run what it queued.
 async function keptKeys(page: Page): Promise<string[]> {
@@ -29,7 +32,7 @@ async function keptKeys(page: Page): Promise<string[]> {
 }
 
 test(
-  'AC-16d: sign-out leaves no offline copy, even when reads and a bookmark add answer after it',
+  'AC-16d: sign-out leaves no bookmark offline copy, even when reads and a bookmark add answer after it',
   { tag: ['@journey-offline', '@surface-app', '@story-4'] },
   async ({ page }) => {
     // Given: the owner bookmarked an item (<run> in its title) while online and opened the
@@ -51,7 +54,7 @@ test(
     // reopened page (its feed and categories reads); the Bookmarks panel then reads unheld, and
     // its bookmark is removed and added again, the add held; a second opening of the panel holds
     // its three reads. The owner signs out through the sign-out control while all are held; once
-    // the sign-in screen shows, every held request is released and completes
+    // the guest feed shows, every held request is released and completes
     const held: { route: Route; request: Request; name: string }[] = [];
     let phase: 'first' | 'all' | 'released' = 'first';
     await page.route(`${dataUrl()}/**`, async (route, request) => {
@@ -84,8 +87,9 @@ test(
       .poll(heldNames, { message: 'the add and the panel\'s three reads are held' })
       .toEqual(['GET bookmarks', 'GET categories', 'GET categories', 'GET feed', 'GET feed', 'POST bookmarks']);
     await page.getByTestId('sign-out').tap();
-    await expect(page.getByTestId('sign-in-form'), 'the sign-in screen shows after sign-out').toBeVisible();
-    await expect.poll(() => keptKeys(page), { message: 'sign-out cleared the copy' }).toEqual([]);
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
+    await expect(page.getByTestId('feed-list'), 'first unmet step (s-21b): the guest feed shows after sign-out').toBeVisible();
+    await expect.poll(() => keptKeys(page), { message: 'sign-out cleared the bookmark copy' }).not.toContain(BOOKMARKS_KEY);
     phase = 'released';
     for (const entry of held) await entry.route.continue();
     for (const entry of held) {
@@ -94,9 +98,9 @@ test(
       await response?.finished();
     }
 
-    // Then: after every held answer completed, neither offline-copy key is in localStorage
+    // Then: after every held answer completed, the bookmark offline-copy key is not in localStorage
     await expect
-      .poll(() => keptKeys(page), { message: 'first unmet step (4): no offline copy after sign-out' })
-      .toEqual([]);
+      .poll(() => keptKeys(page), { message: 'first unmet step (4): no bookmark offline copy after sign-out' })
+      .not.toContain(BOOKMARKS_KEY);
   },
 );

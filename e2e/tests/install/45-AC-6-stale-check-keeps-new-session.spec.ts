@@ -6,6 +6,9 @@
 // signs in through the form meanwhile and the old check is answered afterwards (bad_jwt in the first part, success in the
 // second), then the new session stays signed in and the feed reads (first part), and a later sign-out is not undone by the
 // old success (second part).
+// Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): without a session the app
+// shows the guest screen in place of the sign-in screen, and a sign-in from the Bookmarks tab lands on Bookmarks, so
+// the feed is read after a tap on the Feed tab.
 import { test, expect } from '../../support/session';
 import { buildWithKeyB, staleOwnerSession, submitOwner } from '../../support/client-build';
 import { runMarker } from '../../support/env';
@@ -58,7 +61,8 @@ test(
     const release = await loadWithHeldCheck(page, ownerState, new URL(String(testInfo.project.use.baseURL)).origin);
 
     // When: the owner signs in through the form meanwhile, and then the held check is answered bad_jwt
-    await expect(page.getByTestId('sign-in-form')).toBeVisible();
+    await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
     await submitOwner(page);
     await expect(page.getByTestId('signed-in')).toBeVisible();
     await release(403, { code: 403, error_code: 'bad_jwt', msg: 'invalid JWT' });
@@ -67,6 +71,7 @@ test(
     await page.waitForTimeout(3000);
     await expect(page.getByTestId('signed-in')).toBeVisible();
     await expect(page.getByTestId('sign-in-form')).toHaveCount(0);
+    await page.getByTestId('nav-feed').tap();
     await itemWithTitle(page, run, 'the feed of the new session');
   },
 );
@@ -80,13 +85,14 @@ test(
     // Given: a stored session the stack refuses, its first check held
     const release = await loadWithHeldCheck(page, ownerState, new URL(String(testInfo.project.use.baseURL)).origin);
 
-    // When: the sign-in screen shows (the second check was refused), and the held check is answered with success
-    await expect(page.getByTestId('sign-in-form')).toBeVisible();
+    // When: the guest screen shows (the second check was refused), and the held check is answered with success
+    await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
     await release(200, { id: 'stale' });
 
-    // Then: the sign-in screen stays
+    // Then: the guest screen stays
     await page.waitForTimeout(3000);
-    await expect(page.getByTestId('sign-in-form')).toBeVisible();
+    await expect(page.getByTestId('nav-bookmarks')).toBeVisible();
     await expect(page.getByTestId('signed-in')).toHaveCount(0);
   },
 );
