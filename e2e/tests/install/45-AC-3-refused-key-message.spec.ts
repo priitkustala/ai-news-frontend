@@ -5,6 +5,8 @@
 // invalid API key) and, in the second part, a wrong password (400, invalid_credentials), when the owner
 // submits, then the error element has the key message, containing neither email nor password, and for
 // the wrong password the existing message.
+// Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): the sign-in form is
+// behind the Bookmarks tab of the guest screen, so the Given taps that tab first.
 import { test, expect } from '@playwright/test';
 import { ownerCredentials } from '../../support/client-build';
 
@@ -32,8 +34,10 @@ test(
     const { email, password } = ownerCredentials();
 
     try {
-      // Given: the sign-in screen
+      // Given: the sign-in form of the Bookmarks tab
       await page.goto('/');
+      await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the Bookmarks tab of a visitor').toBeVisible();
+      await page.getByTestId('nav-bookmarks').tap();
       await page.getByTestId('sign-in-email').fill(email);
       await page.getByTestId('sign-in-password').fill(password);
 

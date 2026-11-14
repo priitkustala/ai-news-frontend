@@ -4,12 +4,14 @@
 // Given a browser profile that visited the client built with key A, its worker registered, and holding a
 // stored session an earlier stack issued (the owner's session with a changed signature and a refresh token
 // the stack never issued), when the client is rebuilt with key B and the profile visits it again, then the
-// sign-in form shows and stays (no error loop), and the owner persona's right credentials give the signed-in screen.
+// guest screen shows and stays (no error loop), and the owner persona's right credentials give the signed-in screen.
+// Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): without a session the
+// app shows the guest feed, and the sign-in form is behind the Bookmarks tab (submitOwner opens it).
 import { test, expect } from '../../support/session';
 import { buildWithKeyA, buildWithKeyB, launchProfile, logReadings, staleFields, staleOwnerSession, submitOwner, visitAndRegisterWorker, watchSignIn } from '../../support/client-build';
 
 test(
-  'AC-2: a stored session of an earlier stack leads to the sign-in screen, and sign-in works',
+  'AC-2: a stored session of an earlier stack leads to the guest screen, and sign-in works',
   { tag: ['@journey-install', '@surface-app', '@bug-45'] },
   async ({ ownerState }, testInfo) => {
     test.setTimeout(180_000);
@@ -34,10 +36,13 @@ test(
         const page = await context.newPage();
         await page.goto('/');
 
-        // Then: the sign-in form shows and stays
-        await expect(page.getByTestId('sign-in-form')).toBeVisible();
+        // Then: the guest screen shows and stays
+        await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+        await expect(page.getByTestId('signed-in')).toHaveCount(0);
         await page.waitForLoadState('networkidle');
-        await expect(page.getByTestId('sign-in-form')).toBeVisible();
+        await expect(page.getByTestId('nav-bookmarks')).toBeVisible();
+        await expect(page.getByTestId('signed-in')).toHaveCount(0);
+        await expect(page.getByTestId('sign-in-error')).toHaveCount(0);
 
         // and the right credentials give the signed-in screen
         const outcome = await submitOwner(page);

@@ -1,6 +1,6 @@
 // E2E_APP_SIGNIN_COMMAND of this repository (priitkustala/ai-news#40):
 //   node scripts/app-sign-in.mjs <persona> <storage-state-file>
-// Signs a seeded persona in through the client's own sign-in screen, in the scenarios'
+// Signs a seeded persona in through the client's own sign-in form, in the scenarios'
 // browser and device profile (WebKit, Playwright's iPhone 15), and saves the browser state
 // as a Playwright storage-state file (e2e/tests/README-testids.md, Variables). The client
 // must be served at E2E_BASE_URL. The personas are the backend seed's synthetic test users
@@ -36,6 +36,13 @@ try {
   const context = await browser.newContext({ ...devices['iPhone 15'], baseURL });
   const page = await context.newPage();
   await page.goto('/');
+  // The sign-in form opens the page without guest reading; with it, the form is behind the
+  // Bookmarks tab (priitkustala/ai-news-frontend#44, S-21b): whichever shows first decides.
+  const opening = await Promise.race([
+    page.getByTestId('sign-in-email').waitFor({ timeout: 30_000 }).then(() => 'form'),
+    page.getByTestId('nav-bookmarks').waitFor({ timeout: 30_000 }).then(() => 'tab'),
+  ]);
+  if (opening === 'tab') await page.getByTestId('nav-bookmarks').click();
   await page.getByTestId('sign-in-email').fill(credentials.email);
   await page.getByTestId('sign-in-password').fill(credentials.password);
   await page.getByTestId('sign-in-submit').click();

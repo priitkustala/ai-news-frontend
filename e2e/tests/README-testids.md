@@ -48,6 +48,7 @@ Every `data-testid` the scenarios and the `support/` helpers of this repository 
 | `offline-banner` | Offline banner; two elements can carry this id while the article view is open offline (the feed's, hidden, and the article's); scope the locator to the page that is open. | `artboards/06-feed-offline.html`, `artboards/12-article-offline.html` |
 | `original-article` | Control that opens the original article, after the summary and the picture | `artboards/11-article-online.html` |
 | `retry` | Retry control in the Error state | `artboards/05-feed-error.html` |
+| `sign-in-reason` | The line above the sign-in form on the Bookmarks tab of a visitor: `Sign in to keep your bookmarks.` (priitkustala/ai-news-frontend#44, S-21b) | none: no artboard draws this id (the sign-in card has no artboard) |
 | `stale-state` | Stale state with the prominent last-updated time | `artboards/07-feed-stale.html` |
 | `status-message` | Status message read by assistive technology (role status) | `artboards/05-feed-error.html`, `artboards/06-feed-offline.html`, `artboards/12-article-offline.html`, `artboards/14-bookmark-control.html` |
 | `subscribe` | The app's own subscribe control | `artboards/18-push-subscribe.html` |

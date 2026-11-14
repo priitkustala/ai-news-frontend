@@ -18,6 +18,8 @@
 // node, never as markup (B-03). A Reddit row (priitkustala/ai-news#44, S-07) draws artboard 09:
 // the community in place of the source, the poster and the from Reddit label in place of the
 // summary, and the links to the Reddit post and the external page in place of the original.
+// A visitor without a session reads the same feed (priitkustala/ai-news-frontend#44, S-21b), with no
+// bookmark control on any item.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookmarkControl } from '../bookmarks/control.js';
 import { el, icon } from '../dom.js';
@@ -185,15 +187,15 @@ function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
 
 // One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
 // last row holds the link to the original (a Reddit row: the post and external links), then the
-// bookmark control at the right (artboard 14).
-export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle): HTMLElement {
+// bookmark control at the right (artboard 14), which a visitor's feed leaves out.
+export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle, bookmarkable = true): HTMLElement {
   const title = headline(row, categoryName, open);
   const summary = isReddit(row)
     ? attribution(row)
     : row.summary
       ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
       : null;
-  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row), bookmarkControl(row));
+  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row), ...(bookmarkable ? [bookmarkControl(row)] : []));
   const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
   const item = el('article', { 'data-testid': 'feed-item' });
   // Compact until a picture has loaded (S-09): pending, placeholder and failed keep this layout.
@@ -280,8 +282,9 @@ function loadingState(words: string): HTMLElement {
 // rows meanwhile; only the latest request draws, so a late answer never shows under another chip.
 // A failed first read asks whether the app's own origin answers (S-19): no answer is Offline, an
 // answer is Error. Either draws the kept copy, if there is one, under the banner or the Error
-// state, and is announced once in the one status region (src/status.ts).
-export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null): HTMLElement {
+// state, and is announced once in the one status region (src/status.ts). A visitor's feed (guest)
+// draws no bookmark control.
+export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null, guest = false): HTMLElement {
   const list = el(
     'section',
     { class: 'flex flex-col', 'aria-label': 'Headlines', 'aria-busy': 'true', 'data-testid': 'feed-list' },
@@ -299,7 +302,7 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
       list.replaceChildren(emptyState(categoryName));
       return;
     }
-    list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open)));
+    list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open, !guest)));
   };
   const failed = () => {
     list.removeAttribute('aria-busy');
