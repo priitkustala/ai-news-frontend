@@ -1,5 +1,5 @@
-# Rollback of the client (priitkustala/ai-news#56): a person dispatches it, and it runs only after the
-# owner's approval in the environment production. It copies the release kept in the channel previous-live
+# Rollback of the client (priitkustala/ai-news#56): only the owner starts it, by hand in Actions, and it
+# runs at once (frontend#63; no reviewer step). It copies the release kept in the channel previous-live
 # (written by release.yml before each promotion) to the channel target_channel: live for a rollback, or
 # another channel for a drill, which then checks that the target serves the same shell cache name as
 # previous-live. No agent dispatches or approves it. Values reach the steps only through env; the deploy
@@ -35,17 +35,6 @@ jobs:
         run: |
           if [[ ! "$TARGET_CHANNEL" =~ ^[a-z0-9-]+$ ]]; then
             echo "target_channel may hold only lower-case letters, digits and hyphens"
-            exit 1
-          fi
-      - name: Guard, the environment production requires a reviewer
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if found=$(gh api "repos/$GITHUB_REPOSITORY/environments/production" \
-            --jq 'any(.protection_rules[]?; .type == "required_reviewers")' 2>/dev/null) && [ "$found" = true ]; then
-            echo yes
-          else
-            echo no
             exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
