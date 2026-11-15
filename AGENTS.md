@@ -9,7 +9,7 @@ The iPhone app of ai-news: the owner reads AI-specific news in it. It talks to t
 
 - Language/runtime: TypeScript, compiled by tsc 7.0.2, for the browser; a plain installable browser client (OD-06 A); the scripts run on Node 22 (OD-03)
 - Frameworks: none; Tailwind CSS 4.3.3 with basecoat-css 1.0.2 (OD-45); @supabase/supabase-js 2.117.2 for the data interface and sign-in
-- Deployment: the static files of `dist/` on Firebase Hosting (OD-22), released only by the workflow `.github/workflows/release.yml` behind the owner's approval (priitkustala/ai-news#56; section Release and rollback)
+- Deployment: the static files of `dist/` on Firebase Hosting (OD-22), released only by the workflow `.github/workflows/release.yml` when the owner starts it by hand in Actions (priitkustala/ai-news#56, frontend#63; section Release and rollback)
 - Owning team: ai-news; team context: `ai-news-team-context`
 
 ## Build, Test, Run
@@ -100,12 +100,13 @@ at a time, the concurrency group `release`):
    keeps its local checks) and deploys it to its own preview channel `run-<run number>` (7 days).
 2. `smoke`: the smoke workflow of #53 (`smoke.yml`) against the preview address; a red smoke run ends
    the release.
-3. `promote`: waits for the owner's approval in the environment `production`, keeps the live release
-   in the channel `previous-live`, then copies that exact preview build to the live site.
+3. `promote`: runs only on a dispatch, when the owner starts the workflow by hand in Actions; a push
+   stops after `smoke`. It keeps the live release in the channel `previous-live`, then copies that
+   exact preview build to the live site.
 
-The rollback is the workflow `.github/workflows/rollback.yml`. A person starts it with
+The rollback is the workflow `.github/workflows/rollback.yml`. Only the owner starts it, with
 `gh workflow run rollback.yml --repo priitkustala/ai-news-frontend` (or the Run workflow button of
-rollback on the Actions page), and it runs after the owner's approval in `production`. It runs
+rollback on the Actions page), and it runs at once, with no reviewer step. It runs
 exactly this command, with the ids from the repository variables:
 
 ```
@@ -115,14 +116,14 @@ release/node_modules/.bin/firebase hosting:clone "$FIREBASE_SITE_ID:previous-liv
 Its input `target_channel` (default `live`) names another channel for a drill, which then checks
 that the channel serves the same shell cache name as `previous-live` (`ROLLBACK CHECK equal`).
 
-- Rule: a person runs the rollback and approves every promotion; no agent dispatches a release or a rollback and no agent approves anything.
+- Rule: only the owner starts a promotion (a dispatch of release) or a rollback, by hand; no agent starts, approves or reruns a release or a rollback, and no agent pushes to main.
 - Window: the channel `previous-live` lives as long as its expiry, 30 days after each promotion (the
   CLI's maximum); after that there is nothing to roll back to until the next promotion.
 - Secrets and variables, set by the owner in the repository settings (names only; no value is
-  written anywhere in this repository): the environment `production` with a required reviewer, the
+  written anywhere in this repository): the environment `production`, the
   secret `FIREBASE_SERVICE_ACCOUNT`, the variables `FIREBASE_PROJECT_ID` and `FIREBASE_SITE_ID`, and
   the four smoke secrets of #53 (`SMOKE_DATA_URL`, `SMOKE_PUBLISHABLE_KEY`, `SMOKE_EMAIL`,
-  `SMOKE_PASSWORD`). Promotion and rollback refuse to run when `production` has no required reviewer.
+  `SMOKE_PASSWORD`).
 
 ## Protected Areas
 
