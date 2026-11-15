@@ -58,6 +58,8 @@ export interface FeedRow {
   post_url: string | null;
   external_url: string | null;
   author_handle: string | null;
+  // The stored digest of the item (DG-2, priitkustala/ai-news-frontend#56); null while it has none.
+  digest: string | null;
 }
 
 const isReddit = (row: FeedRow) => row.source_type === 'reddit';
@@ -223,7 +225,7 @@ function lastUpdated(run: CompletedRun | null, now: number): HTMLElement {
   );
 }
 
-const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at,source_type,community,post_url,external_url,author_handle';
+const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at,source_type,community,post_url,external_url,author_handle,digest';
 
 // The feed view's rows in the view's order: every row for category null, otherwise that
 // category's rows only. Each selection of the filter reads the server again (AC-19).
