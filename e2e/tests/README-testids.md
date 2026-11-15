@@ -16,6 +16,7 @@ Every `data-testid` the scenarios and the `support/` helpers of this repository 
 | `article-placeholder-source` | Source name in text inside the article view's placeholder (frontend#24, S-20) | none: no artboard draws this id (artboard 12 draws the source name inside `article-placeholder` without a test id) |
 | `article-source` | Article source name | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `article-summary` | Stored summary, directly under the title (OD-19) | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
+| `article-digest` | The stored digest, directly under the title in place of the summary (DG-2) | the item priitkustala/ai-news-frontend#56 |
 | `article-time` | Article publication time | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `article-title` | Article title | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `article-view` | Article view region | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
