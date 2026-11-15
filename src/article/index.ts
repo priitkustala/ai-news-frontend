@@ -1,7 +1,8 @@
 // The article view of priitkustala/ai-news-frontend#1 (S-10), drawn after the approved
 // artboard 11 (design/ai-news-app/v1): the back control, then the item's stored fields in the
 // approved order (OD-17 B, OD-19): the metadata line (category, source, publication time), the
-// title, the feed's own summary as the dominant text, the image slot (the feed's slot of
+// title, the item's stored digest as the dominant text (priitkustala/ai-news-frontend#56, DG-2), or the
+// feed's own summary while it has none, the image slot (the feed's slot of
 // src/feed/image.ts under the source's image policy, priitkustala/ai-news-frontend#24, S-20),
 // then one control to the original address. It shows the feed row the feed screen already read
 // with the owner's session. No article body is stored, so none is shown (B-12), and the client
@@ -64,16 +65,18 @@ function originalControl(row: FeedRow): HTMLElement | null {
 
 // The article view of one feed row; back returns to the feed.
 export function articleScreen(row: FeedRow, categoryName: string, back: () => void): HTMLElement {
-  const summary = row.summary
-    ? el('p', { class: 'text-[17px] leading-normal', 'data-testid': 'article-summary' }, row.summary)
-    : null;
+  const text = row.digest
+    ? el('p', { class: 'text-[17px] leading-normal', 'data-testid': 'article-digest' }, row.digest)
+    : row.summary
+      ? el('p', { class: 'text-[17px] leading-normal', 'data-testid': 'article-summary' }, row.summary)
+      : null;
   const offline = currentMode() === 'offline';
   const original = offline ? needsConnection() : originalControl(row);
   const slot = imageSlot(row, (picture, credit) => slot.replaceWith(picture, ...(credit ? [credit] : [])), 'article');
   const fields = [
     metaLine(row, categoryName),
     el('h1', { class: 'text-2xl font-bold leading-tight', 'data-testid': 'article-title' }, row.title),
-    ...(summary ? [summary] : []),
+    ...(text ? [text] : []),
     slot,
     ...(original ? [original] : []),
   ];
