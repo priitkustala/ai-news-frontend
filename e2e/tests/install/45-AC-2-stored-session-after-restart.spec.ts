@@ -6,13 +6,16 @@
 // the stack never issued), when the client is rebuilt with key B and the profile visits it again, then the
 // guest screen shows and stays (no error loop), and the owner persona's right credentials give the signed-in screen.
 // Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): without a session the
-// app shows the guest feed, and the sign-in form is behind the Bookmarks tab (submitOwner opens it).
+// app shows the guest feed, and the sign-in form was then behind the Bookmarks tab (submitOwner opened it).
+// Changed by priitkustala/ai-news-frontend#69 (HB-1, the owner decision of 2026-11-16): a visitor's screen has no
+// tab bar, so the guest screen is told by the feed list with no signed-in screen and no Bookmarks tab, and
+// submitOwner opens the sign-in address /#sign-in.
 import { test, expect } from '../../support/session';
 import { buildWithKeyA, buildWithKeyB, launchProfile, logReadings, staleFields, staleOwnerSession, submitOwner, visitAndRegisterWorker, watchSignIn } from '../../support/client-build';
 
 test(
   'AC-2: a stored session of an earlier stack leads to the guest screen, and sign-in works',
-  { tag: ['@journey-install', '@surface-app', '@bug-45'] },
+  { tag: ['@journey-install', '@surface-app', '@bug-45', '@story-69'] },
   async ({ ownerState }, testInfo) => {
     test.setTimeout(180_000);
     const folder = testInfo.outputPath('profile');
@@ -37,10 +40,14 @@ test(
         await page.goto('/');
 
         // Then: the guest screen shows and stays
-        await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+        await expect(page.getByTestId('feed-list'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+        await expect(page.getByTestId('signed-in')).toHaveCount(0);
+        await expect(page.getByTestId('nav-bookmarks')).toHaveCount(0);
         await expect(page.getByTestId('signed-in')).toHaveCount(0);
         await page.waitForLoadState('networkidle');
-        await expect(page.getByTestId('nav-bookmarks')).toBeVisible();
+        await expect(page.getByTestId('feed-list')).toBeVisible();
+        await expect(page.getByTestId('signed-in')).toHaveCount(0);
+        await expect(page.getByTestId('nav-bookmarks')).toHaveCount(0);
         await expect(page.getByTestId('signed-in')).toHaveCount(0);
         await expect(page.getByTestId('sign-in-error')).toHaveCount(0);
 

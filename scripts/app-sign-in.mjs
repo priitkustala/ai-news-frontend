@@ -35,14 +35,9 @@ const browser = await webkit.launch();
 try {
   const context = await browser.newContext({ ...devices['iPhone 15'], baseURL });
   const page = await context.newPage();
-  await page.goto('/');
-  // The sign-in form opens the page without guest reading; with it, the form is behind the
-  // Bookmarks tab (priitkustala/ai-news-frontend#44, S-21b): whichever shows first decides.
-  const opening = await Promise.race([
-    page.getByTestId('sign-in-email').waitFor({ timeout: 30_000 }).then(() => 'form'),
-    page.getByTestId('nav-bookmarks').waitFor({ timeout: 30_000 }).then(() => 'tab'),
-  ]);
-  if (opening === 'tab') await page.getByTestId('nav-bookmarks').click();
+  // The sign-in form opens at the address /#sign-in of a visitor's screen
+  // (priitkustala/ai-news-frontend#69); no screen links to it.
+  await page.goto('/#sign-in');
   await page.getByTestId('sign-in-email').fill(credentials.email);
   await page.getByTestId('sign-in-password').fill(credentials.password);
   await page.getByTestId('sign-in-submit').click();

@@ -5,8 +5,10 @@
 // invalid API key) and, in the second part, a wrong password (400, invalid_credentials), when the owner
 // submits, then the error element has the key message, containing neither email nor password, and for
 // the wrong password the existing message.
-// Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): the sign-in form is
-// behind the Bookmarks tab of the guest screen, so the Given taps that tab first.
+// Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): the sign-in form was
+// then behind the Bookmarks tab of the guest screen, so the Given tapped that tab first.
+// Changed by priitkustala/ai-news-frontend#69 (HB-1, the owner decision of 2026-11-16): a visitor's screen has no
+// tab bar; the Given opens the sign-in address /#sign-in and expects the sign-in form there.
 import { test, expect } from '@playwright/test';
 import { ownerCredentials } from '../../support/client-build';
 
@@ -19,7 +21,7 @@ const PASSWORD_MESSAGE = 'Sign-in failed. Check the email and the password.';
 
 test(
   'AC-3: a refused key has its own message; a wrong password keeps the old one',
-  { tag: ['@journey-install', '@surface-app', '@bug-45'] },
+  { tag: ['@journey-install', '@surface-app', '@bug-45', '@story-69'] },
   async ({ page }) => {
     // The answers the local stack really gave (status readings of this item)
     let answer = { status: 401, body: { message: 'Invalid API key' } } as { status: number; body: object };
@@ -34,10 +36,9 @@ test(
     const { email, password } = ownerCredentials();
 
     try {
-      // Given: the sign-in form of the Bookmarks tab
-      await page.goto('/');
-      await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the Bookmarks tab of a visitor').toBeVisible();
-      await page.getByTestId('nav-bookmarks').tap();
+      // Given: the sign-in form at the sign-in address
+      await page.goto('/#sign-in');
+      await expect(page.getByTestId('sign-in-form')).toBeVisible();
       await page.getByTestId('sign-in-email').fill(email);
       await page.getByTestId('sign-in-password').fill(password);
 

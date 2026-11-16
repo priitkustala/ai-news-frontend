@@ -4,8 +4,12 @@
 // Source: the regression contract, Test integrity 2 (a bug is reproduced as a failing scenario before its
 // repair); the item's table of changed scenarios and the accepted settlement of S-21b.
 // Given the owner with a stored session reading the feed, when they sign out, then the guest feed shows and a
-// reload keeps it, the Bookmarks tab shows the sign-in form, and no request to the data interface after the
+// reload keeps it, the sign-in form opens at the sign-in address, and no request to the data interface after the
 // sign-out carries the owner's access token.
+// Changed by priitkustala/ai-news-frontend#69 (HB-1, the owner decision of 2026-11-16: bookmarks are hidden from
+// visitors until accounts can be created). Old Then: the Bookmarks tab shows the sign-in form. New Then: after the
+// sign-out and the reload there is no Bookmarks tab and no bookmark control, and the sign-in address /#sign-in shows
+// the sign-in form.
 import type { Request } from '@playwright/test';
 import { test, expect } from '../../support/session';
 import { requireEnv, runMarker } from '../../support/env';
@@ -18,7 +22,7 @@ test.use({ serviceWorkers: 'block' });
 
 test(
   'AC-09c: sign-out from the feed shows the guest feed, and a reload keeps it',
-  { tag: ['@journey-read-feed', '@surface-app', '@bug-23'] },
+  { tag: ['@journey-read-feed', '@surface-app', '@bug-23', '@story-69'] },
   async ({ page }) => {
     // Given: the seeded feed shown for the stored session; every request to the data interface is kept,
     // marked whether it went out after the sign-out tap
@@ -60,8 +64,10 @@ test(
     await page.reload();
     await itemWithTitle(page.getByTestId('feed-list'), run, 'the guest feed after the reload');
     await expect(page.getByTestId('signed-in')).toHaveCount(0);
-    // the Bookmarks tab shows the sign-in form
-    await page.getByTestId('nav-bookmarks').tap();
+    // no Bookmarks tab and no bookmark control; the sign-in address shows the sign-in form
+    await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (69): no Bookmarks tab after sign-out').toHaveCount(0);
+    await expect(page.getByTestId('feed-item-bookmark')).toHaveCount(0);
+    await page.goto('/#sign-in');
     await expect(page.getByTestId('sign-in-form')).toBeVisible();
     await page.waitForLoadState('networkidle');
     expect(dataRequests.filter((e) => e.after).length, 'the guest feed was read after the sign-out').toBeGreaterThan(0);
