@@ -141,7 +141,7 @@ The owner opens the traces and decides. An agent's run is evidence, not the deci
 | bookmark | `@journey-bookmark` | The owner bookmarks and unbookmarks items and hears the status change. Rows here: AC-15a, AC-15b, AC-15e, AC-24a, AC-24b, AC-24c. |
 | bootstrap | `@journey-bootstrap` | The local environment starts with seeded synthetic data (the #40 bootstrap checks). Rows here: 40f. |
 | filter-category | `@journey-filter-category` | The owner reads the category list with counts and narrows the feed to one category. Rows here: AC-11a, AC-11b, AC-19. |
-| install | `@journey-install` | The client is installed and launched as a Home Screen web app. Rows here: AC-23a, AC-23b. |
+| install | `@journey-install` | The client is installed and launched as a Home Screen web app. Rows here: AC-23a, AC-23b, 71-AC-1, 71-AC-2. |
 | offline | `@journey-offline` | The owner reads cached items and bookmarks with no network. Rows here: AC-16a, AC-16b, AC-16c. |
 | open-article | `@journey-open-article` | The owner opens one item in the article view and reaches the original. Rows here: AC-12, AC-10d, AC-10e, AC-10f, AC-10g. |
 | push | `@journey-push` | The owner subscribes to the daily push notification or refuses it (conditional on OD-08). Rows here: AC-14a, AC-14b. |
