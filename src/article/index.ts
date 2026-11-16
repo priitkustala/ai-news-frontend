@@ -82,7 +82,7 @@ export function articleScreen(row: FeedRow, categoryName: string, back: () => vo
   ];
   return el(
     'main',
-    { class: 'flex flex-1 flex-col' },
+    { class: 'flex flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-2xl' },
     ...(offline ? [offlineBanner(OFFLINE_ARTICLE)] : []),
     el('header', { class: 'px-4 pt-3.5 pb-2' }, backControl(back)),
     el('article', { class: 'flex flex-col gap-3 px-4 pt-2 pb-4', 'data-testid': 'article-view' }, ...fields),

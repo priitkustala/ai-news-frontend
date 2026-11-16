@@ -40,7 +40,7 @@ function storedItem(row: BookmarkRow): HTMLElement {
 }
 
 export function bookmarksPanel(client: SupabaseClient, open: OpenArticle): { panel: HTMLElement; reload: () => Promise<void> } {
-  const panel = el('section', { class: 'flex flex-col', 'aria-label': 'Bookmarks', 'data-testid': 'bookmarks-list' });
+  const panel = el('section', { class: 'flex flex-col lg:mx-auto lg:w-full lg:max-w-2xl', 'aria-label': 'Bookmarks', 'data-testid': 'bookmarks-list' });
   // Only the answer of the latest opening is drawn, and only within the signed-in lifetime it
   // started in. The reads make no automatic retry, so that a failed one draws the kept copy at
   // once (S-19).

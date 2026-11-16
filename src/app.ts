@@ -36,7 +36,7 @@ const root = document.getElementById('app') as HTMLElement;
 const bar = tabBar(selectTab);
 bar.hidden = true;
 document.body.append(bar, statusRegion());
-root.classList.add('pb-[75px]');
+root.classList.add('pb-[75px]', 'md:pb-0');
 
 function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
@@ -91,7 +91,7 @@ function signInCard(): HTMLElement {
 
   return el(
     'div',
-    { class: 'flex flex-1 flex-col px-4' },
+    { class: 'flex flex-1 flex-col px-4 lg:mx-auto lg:w-full lg:max-w-2xl' },
     el(
       'section',
       { class: 'card mt-6' },

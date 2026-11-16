@@ -13,7 +13,7 @@ const SHOWN_MS = 5000;
 const region = el('p', {
   role: 'status',
   class:
-    'pointer-events-none fixed bottom-[91px] left-1/2 z-30 w-[361px] max-w-[calc(100%-32px)] -translate-x-1/2 rounded-[10px] bg-[#1A1C21] px-4 py-3 text-sm font-semibold text-white empty:bg-transparent empty:p-0',
+    'pointer-events-none fixed bottom-[91px] left-1/2 z-30 w-[361px] max-w-[calc(100%-32px)] -translate-x-1/2 rounded-[10px] bg-[#1A1C21] px-4 py-3 text-sm font-semibold text-white empty:bg-transparent empty:p-0 md:bottom-6',
   'data-testid': 'status-message',
 });
 
