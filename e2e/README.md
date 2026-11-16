@@ -11,7 +11,7 @@ Filled by the environment bootstrap story (priitkustala/ai-news#40) with the rea
 |---|---|---|
 | Start the app locally | `npm run build`, then `npm start`; or `node scripts/run-scenarios.mjs <playwright arguments>`, which serves `dist/` for one scenario run and stops it | client `http://localhost:3000`; local Supabase interface `http://ai-news-api:8000` (Data API `/rest/v1`, Supabase Auth `/auth/v1`); command relay `http://ai-news-commands:8090` |
 | Seed synthetic data | `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` | |
-| Development-only sign-in | `node scripts/app-sign-in.mjs owner <storage-state-file>` (the client's own sign-in screen; saves a Playwright storage state); a token only: `node scripts/backend-command.mjs sign-in owner` | |
+| Development-only sign-in | `node scripts/app-sign-in.mjs owner <storage-state-file>` (the client's own sign-in form, which opens at `/#sign-in`: a visitor's screen shows no tabs, the Feed and Bookmarks tabs are shown only with a session, priitkustala/ai-news-frontend#69; saves a Playwright storage state); a token only: `node scripts/backend-command.mjs sign-in owner` | |
 
 The rows above are the repository folder form. A story's own instance (priitkustala/ai-news#65),
 the separate clone `<folder>` = `ai-news-frontend-<key>` paired with one backend `<backend>` (a
@@ -24,7 +24,7 @@ Test, Run, A story's own instance). The paired backend's stack is started first,
 |---|---|---|
 | Start the app locally (instance) | host: `AI_NEWS_NETWORK=<backend>-local sandbox` from `<folder>` (`AI_NEWS_NETWORK=ai-news-local` or unset when paired with the repository folder), after its `.env.local` is written; then box: `npm run build`, then `npm start`, or `node scripts/run-scenarios.mjs <playwright arguments>` | client `http://localhost:3000` in that box; the paired backend's `http://ai-news-api:8000` and `http://ai-news-commands:8090`, reachable only on its own network |
 | Seed synthetic data (instance) | box of `<folder>`: `node scripts/backend-command.mjs seed <fixture-set> <run-marker>` (seeds the paired backend's database) | |
-| Development-only sign-in (instance) | box of `<folder>`: `node scripts/app-sign-in.mjs owner <storage-state-file>`; a token only: `node scripts/backend-command.mjs sign-in owner` | |
+| Development-only sign-in (instance) | box of `<folder>`: `node scripts/app-sign-in.mjs owner <storage-state-file>` (the sign-in form at `/#sign-in`, as above); a token only: `node scripts/backend-command.mjs sign-in owner` | |
 | State and stop of the instance's box | host, from `<folder>`: `AI_NEWS_NETWORK=<backend>-local docker compose -p ai-news-frontend-<key>_devcontainer -f .devcontainer/docker-compose.yml -f .devcontainer/docker-compose.override.yml ps` (state; `AI_NEWS_NETWORK=ai-news-local` when paired with the repository folder), the same with `stop` in place of `ps` (stop; the paired backend keeps running); `../AGENTS.md`, rows State of the instance's box and Stop of the instance's box | |
 
 ## Variables the scenarios read

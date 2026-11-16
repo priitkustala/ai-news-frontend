@@ -101,16 +101,12 @@ export function watchSignIn(context: BrowserContext): () => string {
   return () => `sign-in request apikey header: ${apikey}; response status: ${status}`;
 }
 
-// The owner submits the right credentials; resolves with what shows first. The sign-in form opens the
-// page without guest reading; with it, the form is behind the Bookmarks tab (priitkustala/ai-news-frontend#44,
-// S-21b): whichever shows first decides.
+// The owner submits the right credentials; resolves with what shows first. It opens the sign-in address
+// /#sign-in on the page it is given (priitkustala/ai-news-frontend#69): on an open page a change of the
+// address only, which keeps a held check of 45-AC-6 pending, or a fresh load on a new page.
 export async function submitOwner(page: Page): Promise<'signed-in' | 'sign-in-error'> {
   const { email, password } = ownerCredentials();
-  const opening = await Promise.race([
-    page.getByTestId('sign-in-email').waitFor({ timeout: 30_000 }).then(() => 'form' as const),
-    page.getByTestId('nav-bookmarks').waitFor({ timeout: 30_000 }).then(() => 'tab' as const),
-  ]);
-  if (opening === 'tab') await page.getByTestId('nav-bookmarks').click();
+  await page.goto('/#sign-in');
   await page.getByTestId('sign-in-email').fill(email);
   await page.getByTestId('sign-in-password').fill(password);
   await page.getByTestId('sign-in-submit').click();

@@ -8,7 +8,9 @@
 // status message of src/status.ts); in the Home Screen web app the feed carries the daily
 // notification's subscribe card (priitkustala/ai-news#50, src/push); the rest arrive with their
 // own stories. Without a session a visitor reads the feed and the article view, with no owner
-// control, and the Bookmarks tab asks for sign-in (priitkustala/ai-news-frontend#44, S-21b).
+// control (priitkustala/ai-news-frontend#44, S-21b), and with no tab bar: bookmarks are hidden from
+// visitors until accounts can be created, and the sign-in card opens only at the address /#sign-in,
+// which no screen links to (priitkustala/ai-news-frontend#69, HB-1).
 import type { AuthChangeEvent, Session, SupabaseClient } from '@supabase/supabase-js';
 import { articleScreen } from './article/index.js';
 import { refreshBookmarks } from './bookmarks/control.js';
@@ -31,18 +33,20 @@ const client: SupabaseClient = window.supabase.createClient(config.supabaseUrl, 
 
 const root = document.getElementById('app') as HTMLElement;
 // The tab bar and the status message stand outside #app, so that they survive every render and
-// stay over the article view (artboard 11); the bar shows from the first render on, with or
-// without a session. The page's bottom padding keeps the last item and sign-out above the bar.
+// stay over the article view (artboard 11). The bar stands in the document only on a signed-in
+// screen, directly before the status message; a visitor's screen has none, and before the first
+// render it is not in the document (priitkustala/ai-news-frontend#69). The page's bottom padding
+// keeps the last item and sign-out above the bar.
 const bar = tabBar(selectTab);
-bar.hidden = true;
-document.body.append(bar, statusRegion());
+const status = statusRegion();
+document.body.append(status);
 root.classList.add('pb-[75px]');
 
 function appBar(): HTMLElement {
   return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
 }
 
-// The sign-in card, behind a visitor's Bookmarks tab.
+// The sign-in card, opened at the address /#sign-in of a visitor's screen (priitkustala/ai-news-frontend#69).
 function signInCard(): HTMLElement {
   const email = el('input', {
     id: 'sign-in-email',
@@ -127,10 +131,10 @@ function openArticle(row: FeedRow, categoryName: string): void {
 history.scrollRestoration = 'manual';
 window.addEventListener('popstate', () => closeArticle?.());
 
-// The two panels of the screen shown: the feed and, behind the Bookmarks tab, the owner's
-// Bookmarks panel or a visitor's sign-in card (reload draws the panel's content at every opening,
-// leave clears it on the way back to the feed); then the tab shown and the feed's place while
-// Bookmarks is shown.
+// The two panels of the signed-in screen: the feed and, behind the Bookmarks tab, the owner's
+// Bookmarks panel (reload draws the panel's content at every opening, leave clears it on the way
+// back to the feed); null on a visitor's screen, which has no tabs (priitkustala/ai-news-frontend#69);
+// then the tab shown and the feed's place while Bookmarks is shown.
 let panels: { feed: HTMLElement; bookmarks: HTMLElement; reload: () => void; leave: () => void } | null = null;
 let shownTab: Tab = 'feed';
 let feedScroll = 0;
@@ -185,15 +189,37 @@ function signedInScreen(): HTMLElement {
   );
 }
 
-// A visitor's screen: the feed with no bookmark control and no push card, and behind the Bookmarks
-// tab the sign-in card, drawn only while that tab is shown, so the feed screen holds no sign-in form.
-// No bookmark or push read is made without a session.
+// A visitor's screen: the feed with no bookmark control, no push card and no tab bar, and the
+// sign-in card drawn in the feed's place exactly while the address is /#sign-in, so the feed screen
+// holds no sign-in form (priitkustala/ai-news-frontend#69). No bookmark or push read is made without
+// a session.
+let guest: { feed: HTMLElement; signIn: HTMLElement } | null = null;
+
+// Shows the card or the feed as the address says; nothing changes when the card already stands as
+// the address asks (the back from the article view changes the address too).
+function showSignIn(): void {
+  if (!guest) return;
+  const wanted = location.hash === '#sign-in';
+  if (wanted === (guest.signIn.childElementCount > 0)) return;
+  if (wanted) guest.signIn.replaceChildren(signInCard());
+  else guest.signIn.replaceChildren();
+  guest.signIn.hidden = !wanted;
+  guest.feed.hidden = wanted;
+}
+
 function guestScreen(): HTMLElement {
   const feed = feedScreen(client, openArticle, null, true);
   const signIn = el('div', { class: 'flex flex-1 flex-col', hidden: '' });
-  panels = { feed, bookmarks: signIn, reload: () => signIn.replaceChildren(signInCard()), leave: () => signIn.replaceChildren() };
+  guest = { feed, signIn };
+  showSignIn();
   return el('main', { class: 'flex flex-1 flex-col' }, feed, signIn);
 }
+
+// The address /#sign-in, entered on an open visitor's screen, opens the card; leaving it closes it.
+// On any other screen the address changes nothing.
+window.addEventListener('hashchange', () => {
+  if (renderedUser === null) showSignIn();
+});
 
 // The app bar, then the install hint in a Safari tab only (absent in the Home Screen web app).
 function top(): HTMLElement[] {
@@ -204,24 +230,22 @@ function top(): HTMLElement[] {
 // The user whose screen is shown: undefined before the first event, null on a visitor's screen.
 let renderedUser: string | null | undefined;
 
+// Every render starts on the Feed tab. A session leaves the address /#sign-in, and only a signed-in
+// screen has the tab bar (priitkustala/ai-news-frontend#69).
 function render(session: Session | null): void {
-  // A sign-in from a visitor's Bookmarks tab lands on the owner's Bookmarks panel; every other
-  // render starts on the Feed tab.
-  const landing: Tab = session && renderedUser === null && shownTab === 'bookmarks' ? 'bookmarks' : 'feed';
+  if (session && location.hash === '#sign-in') history.replaceState(null, '', location.pathname + location.search);
   closeArticle = null;
   renderedUser = session?.user.id ?? null;
   panels = null;
+  guest = null;
   shownTab = 'feed';
   markTab(bar, 'feed');
-  bar.hidden = false;
+  if (session) status.before(bar);
+  else bar.remove();
   if (!session) clearOffline();
   // The bookmarks read goes out before the feed's, so the controls are drawn from it.
   if (session) void refreshBookmarks(client);
   root.replaceChildren(...top(), session ? signedInScreen() : guestScreen());
-  if (landing === 'bookmarks') {
-    markTab(bar, 'bookmarks');
-    showTab('bookmarks');
-  }
 }
 
 // The first event and SIGNED_OUT always render. With a stored session the first event is the

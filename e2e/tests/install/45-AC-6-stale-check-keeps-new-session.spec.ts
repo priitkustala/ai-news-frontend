@@ -9,6 +9,9 @@
 // Rewritten by story S-21b (priitkustala/ai-news-frontend#44; its settlement, finding F1): without a session the app
 // shows the guest screen in place of the sign-in screen, and a sign-in from the Bookmarks tab lands on Bookmarks, so
 // the feed is read after a tap on the Feed tab.
+// Changed by priitkustala/ai-news-frontend#69 (HB-1, the owner decision of 2026-11-16): a visitor's screen has no
+// tab bar, so the guest screen is told by the feed list with no signed-in screen and no Bookmarks tab, and
+// submitOwner opens the sign-in address /#sign-in on the same page (a change of the address only).
 import { test, expect } from '../../support/session';
 import { buildWithKeyB, staleOwnerSession, submitOwner } from '../../support/client-build';
 import { runMarker } from '../../support/env';
@@ -51,7 +54,7 @@ async function loadWithHeldCheck(page: Page, ownerState: string, origin: string)
 
 test(
   'AC-6: a stale session check answered after a new sign-in keeps the new session',
-  { tag: ['@journey-install', '@surface-app', '@bug-45'] },
+  { tag: ['@journey-install', '@surface-app', '@bug-45', '@story-69'] },
   async ({ page, ownerState }, testInfo) => {
     buildWithKeyB();
     const run = runMarker();
@@ -61,7 +64,9 @@ test(
     const release = await loadWithHeldCheck(page, ownerState, new URL(String(testInfo.project.use.baseURL)).origin);
 
     // When: the owner signs in through the form meanwhile, and then the held check is answered bad_jwt
-    await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('feed-list'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
+    await expect(page.getByTestId('nav-bookmarks')).toHaveCount(0);
     await expect(page.getByTestId('signed-in')).toHaveCount(0);
     await submitOwner(page);
     await expect(page.getByTestId('signed-in')).toBeVisible();
@@ -78,7 +83,7 @@ test(
 
 test(
   'AC-6b: a stale session check that succeeds late does not undo a later sign-out',
-  { tag: ['@journey-install', '@surface-app', '@bug-45'] },
+  { tag: ['@journey-install', '@surface-app', '@bug-45', '@story-69'] },
   async ({ page, ownerState }, testInfo) => {
     buildWithKeyB();
 
@@ -86,13 +91,17 @@ test(
     const release = await loadWithHeldCheck(page, ownerState, new URL(String(testInfo.project.use.baseURL)).origin);
 
     // When: the guest screen shows (the second check was refused), and the held check is answered with success
-    await expect(page.getByTestId('nav-bookmarks'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('feed-list'), 'first unmet step (s-21b): the guest screen').toBeVisible();
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
+    await expect(page.getByTestId('nav-bookmarks')).toHaveCount(0);
     await expect(page.getByTestId('signed-in')).toHaveCount(0);
     await release(200, { id: 'stale' });
 
     // Then: the guest screen stays
     await page.waitForTimeout(3000);
-    await expect(page.getByTestId('nav-bookmarks')).toBeVisible();
+    await expect(page.getByTestId('feed-list')).toBeVisible();
+    await expect(page.getByTestId('signed-in')).toHaveCount(0);
+    await expect(page.getByTestId('nav-bookmarks')).toHaveCount(0);
     await expect(page.getByTestId('signed-in')).toHaveCount(0);
   },
 );
