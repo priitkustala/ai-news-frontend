@@ -30,7 +30,9 @@ export default defineConfig({
   projects: [
     // Phone-sized check: screen size, touch and the Safari engine family.
     // It is an emulation, not the device.
-    { name: 'iphone', grepInvert: /@surface-api|@surface-job|@surface-data/, use: { ...devices['iPhone 15'] } },
+    { name: 'iphone', grepInvert: /@surface-api|@surface-job|@surface-data|@viewport-laptop/, use: { ...devices['iPhone 15'] } },
+    // Laptop-sized check, priitkustala/ai-news-frontend#70: only the @viewport-laptop scenarios, WebKit at 1280 by 800.
+    { name: 'laptop', grep: /@viewport-laptop/, use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
     // Scenarios for a published interface need no browser: tag them @surface-api.
     { name: 'api', grep: /@surface-api|@surface-job|@surface-data/, use: {} },
   ],
