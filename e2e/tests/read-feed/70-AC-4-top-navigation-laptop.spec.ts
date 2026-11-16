@@ -35,6 +35,11 @@ async function lowerTabTop(page: Page): Promise<number> {
   return feed && bookmarks ? Math.max(feed.y, bookmarks.y) : Number.POSITIVE_INFINITY;
 }
 
+// One tab's top in the window, or NaN while it has no box (NaN fails both bounds).
+async function tabTop(page: Page, tab: string): Promise<number> {
+  return (await page.getByTestId(tab).boundingBox())?.y ?? Number.NaN;
+}
+
 test(
   '70-AC-4: on a laptop window the tabs stand in a bar along the top, nothing under it, and the toast sits 24 px above the bottom',
   { tag: ['@journey-read-feed', '@surface-app', '@story-70', '@viewport-laptop'] },
@@ -53,6 +58,10 @@ test(
     const feedTab = page.getByTestId('nav-feed');
     const bookmarksTab = page.getByTestId('nav-bookmarks');
     await expect.poll(() => lowerTabTop(page), { message: 'both tabs are within the top 64 px' }).toBeLessThan(64);
+    for (const tab of ['nav-feed', 'nav-bookmarks']) {
+      await expect.poll(() => tabTop(page, tab), { message: `before the scroll ${tab} top is at least 0` }).toBeGreaterThanOrEqual(0);
+      await expect.poll(() => tabTop(page, tab), { message: `before the scroll ${tab} top is less than 64` }).toBeLessThan(64);
+    }
     const feedTabBox = await boxOf(feedTab, 'nav-feed');
     const bookmarksTabBox = await boxOf(bookmarksTab, 'nav-bookmarks');
     expect(Math.abs(feedTabBox.y - bookmarksTabBox.y), 'nav-feed and nav-bookmarks share their top (±1)').toBeLessThanOrEqual(1);
@@ -79,6 +88,10 @@ test(
 
     // Then: both tabs are still within the top 64 px
     await expect.poll(() => lowerTabTop(page), { message: 'after the scroll both tabs are within the top 64 px' }).toBeLessThan(64);
+    for (const tab of ['nav-feed', 'nav-bookmarks']) {
+      await expect.poll(() => tabTop(page, tab), { message: `after the scroll ${tab} top is at least 0` }).toBeGreaterThanOrEqual(0);
+      await expect.poll(() => tabTop(page, tab), { message: `after the scroll ${tab} top is less than 64` }).toBeLessThan(64);
+    }
 
     // When: the owner clicks nav-bookmarks
     await bookmarksTab.click();

@@ -65,6 +65,8 @@ test(
     }
     for (const tab of ['nav-feed', 'nav-bookmarks']) {
       await expect.poll(async () => (await page.getByTestId(tab).boundingBox())?.y ?? Number.POSITIVE_INFINITY, { message: `at 900: ${tab} is within the top 64 px` }).toBeLessThan(64);
+      await expect.poll(async () => (await page.getByTestId(tab).boundingBox())?.y ?? Number.NaN, { message: `at 900: ${tab} top is at least 0` }).toBeGreaterThanOrEqual(0);
+      await expect.poll(async () => (await page.getByTestId(tab).boundingBox())?.y ?? Number.NaN, { message: `at 900: ${tab} top is less than 64` }).toBeLessThan(64);
     }
     expect(await overflow(page), 'at 900: scrollWidth is at most innerWidth').toBeLessThanOrEqual(0);
   },
