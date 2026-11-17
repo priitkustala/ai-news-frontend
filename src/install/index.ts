@@ -3,6 +3,9 @@
 // Screen. It is shown only when the page is not running as the Home Screen web app, and is
 // then left out of the page entirely. No push control belongs here: S-15 adds one in the
 // Home Screen context only.
+//
+// Off in the current release (priitkustala/ai-news-frontend#71, the owner decision of 2026-11-16): no reader
+// can create an account yet, so the hint is drawn for nobody until a later item sets INSTALL_HINT_SHOWN to true.
 
 // iOS Safari reports the Home Screen web app as navigator.standalone; other browsers report
 // it through the display-mode media query, which the manifest's display standalone sets.
@@ -10,6 +13,9 @@ export function isHomeScreenWebApp(): boolean {
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return standalone || window.matchMedia('(display-mode: standalone)').matches;
 }
+
+// The hint is hidden from every reader while this is false (priitkustala/ai-news-frontend#71).
+const INSTALL_HINT_SHOWN = false;
 
 const svgNs = 'http://www.w3.org/2000/svg';
 
@@ -36,6 +42,7 @@ function shareGlyph(): SVGSVGElement {
 
 // The hint block in a Safari tab, or null in the Home Screen web app.
 export function installHint(): HTMLElement | null {
+  if (!INSTALL_HINT_SHOWN) return null;
   if (isHomeScreenWebApp()) return null;
   const text = document.createElement('p');
   text.textContent = 'Add AI news to your Home Screen: tap Share, then Add to Home Screen, turn on Open as Web App, and tap Add.';
