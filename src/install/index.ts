@@ -45,7 +45,7 @@ export function installHint(): HTMLElement | null {
   if (!INSTALL_HINT_SHOWN) return null;
   if (isHomeScreenWebApp()) return null;
   const text = document.createElement('p');
-  text.textContent = 'Add AI news to your Home Screen: tap Share, then Add to Home Screen, turn on Open as Web App, and tap Add.';
+  text.textContent = 'Add Radarnik to your Home Screen: tap Share, then Add to Home Screen, turn on Open as Web App, and tap Add.';
   const hint = document.createElement('aside');
   hint.setAttribute('class', 'mx-4 mt-3 mb-1 flex items-center gap-2.5 rounded-xl bg-[#eef2fb] px-3.5 py-3 text-sm text-foreground');
   hint.setAttribute('data-testid', 'install-hint');

@@ -43,7 +43,12 @@ document.body.append(status);
 root.classList.add('pb-[75px]', 'md:pb-0');
 
 function appBar(): HTMLElement {
-  return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
+  return el(
+    'header',
+    { class: 'px-4 pt-3.5 pb-2' },
+    el('h1', { class: 'text-[22px] font-bold leading-tight', 'data-testid': 'app-name' }, 'Radarnik'),
+    el('p', { class: 'text-sm text-muted-foreground', 'data-testid': 'app-tagline' }, 'Your 30 second digest for every important AI news'),
+  );
 }
 
 // The sign-in card, opened at the address /#sign-in of a visitor's screen (priitkustala/ai-news-frontend#69).
@@ -142,18 +147,21 @@ let feedScroll = 0;
 function showTab(tab: Tab): void {
   if (!panels) return;
   const title = root.querySelector('header h1');
+  const line = root.querySelector<HTMLElement>('header p');
   if (tab === 'bookmarks') {
     if (shownTab === 'feed') feedScroll = window.scrollY;
     panels.feed.hidden = true;
     panels.bookmarks.hidden = false;
     if (title) title.textContent = 'Bookmarks';
+    if (line) line.hidden = true;
     window.scrollTo(0, 0);
     panels.reload();
   } else {
     panels.feed.hidden = false;
     panels.bookmarks.hidden = true;
     panels.leave();
-    if (title) title.textContent = 'AI news';
+    if (title) title.textContent = 'Radarnik';
+    if (line) line.hidden = false;
     if (shownTab === 'bookmarks') window.scrollTo(0, feedScroll);
   }
   shownTab = tab;
