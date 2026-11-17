@@ -15,7 +15,7 @@ import { ownerCredentials } from '../../support/client-build';
 
 test(
   's-21b-AC-3: the sign-in address /#sign-in opens the sign-in form for a visitor, and sign-in there shows the signed-in screen',
-  { tag: ['@journey-bookmark', '@surface-app', '@story-s-21b', '@story-69'] },
+  { tag: ['@journey-bookmark', '@surface-app', '@story-44', '@story-69'] },
   async ({ page }) => {
     // Given: the guest feed with a seeded item (<run> in its title)
     const run = runMarker();

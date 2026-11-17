@@ -13,7 +13,7 @@ import { emulateHomeScreen, emulateNotifications, expectEmulatedNotifications } 
 
 test(
   's-21b-AC-4: the guest feed has no bookmark control, sign-out or push control',
-  { tag: ['@journey-read-feed', '@surface-app', '@story-s-21b'] },
+  { tag: ['@journey-read-feed', '@surface-app', '@story-44'] },
   async ({ page }) => {
     // Given: the guest feed with a seeded item (<run> in its title), in the Home Screen web app
     const run = runMarker();
