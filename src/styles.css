@@ -29,5 +29,6 @@
 @layer base {
   body {
     @apply bg-background text-foreground font-sans text-[15px] leading-[1.35];
+    overflow-wrap: anywhere;
   }
 }
