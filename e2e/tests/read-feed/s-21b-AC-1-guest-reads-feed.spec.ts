@@ -7,6 +7,8 @@
 // visitors until accounts can be created). Old Then: the Feed and Bookmarks tabs show. New Then: no tab bar
 // (no nav-feed, no nav-bookmarks), no bookmark control and no sign-in form, the app bar titled AI news; and the
 // same holds in the article view the visitor opens from the feed.
+// Changed by the Radarnik v2 proposal (priitkustala/ai-news#120): the app bar is titled Radarnik (the logo's text
+// alternative) in place of AI news.
 import { test, expect } from '@playwright/test';
 import { runMarker } from '../../support/env';
 import { seed } from '../../support/job';
@@ -33,7 +35,7 @@ test(
     await expect(page.getByTestId('nav-feed')).toHaveCount(0);
     await expect(page.getByTestId('feed-item-bookmark')).toHaveCount(0);
     await expect(page.getByTestId('sign-in-form')).toHaveCount(0);
-    await expect(page.locator('header h1')).toHaveText('AI news');
+    await expect(page.getByRole('heading', { name: 'Radarnik', exact: true })).toBeVisible();
 
     // When: the visitor opens the seeded item's article view
     await item.getByTestId('feed-item-title').tap();
