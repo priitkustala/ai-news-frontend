@@ -1,0 +1,39 @@
+# Daily freshness check (priitkustala/ai-news-frontend#84, DI-2 under priitkustala/ai-news#27): the smoke row
+# 53-SMOKE-c alone, every evening, against the hosted data with the window 0 days, so that a UTC day without a
+# completed cloud ingestion run fails this workflow and GitHub sends its failure notice. A scheduled start that never
+# happens leaves no run to fail; this check lives in this repository so that a schedule fault of ai-news-backend does
+# not silence it. It reads only: no seed, no sign-in, no browser. This repository is public and its logs are readable
+# by anyone, so the run keeps no trace, uploads no artifact and prints no variable. The owner sets the two secrets.
+name: freshness
+
+on:
+  schedule:
+    - cron: '47 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install the pinned test runner
+        working-directory: e2e
+        run: npm ci
+      - name: Run the freshness row
+        working-directory: e2e
+        env:
+          E2E_DATA_URL: ${{ secrets.SMOKE_DATA_URL }}
+          E2E_PUBLISHABLE_KEY: ${{ secrets.SMOKE_PUBLISHABLE_KEY }}
+          E2E_SMOKE_MAX_RUN_AGE_DAYS: '0'
+          E2E_RUN_TIME_ZONE: UTC
+        run: npx playwright test --project api --grep 53-SMOKE-c --trace off
