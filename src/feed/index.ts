@@ -260,7 +260,7 @@ async function load(client: SupabaseClient): Promise<FeedCopy> {
 function emptyState(categoryName: string | null): HTMLElement {
   return el(
     'div',
-    { class: 'px-[24px] py-[56px] text-center text-[15px] text-[#3D424C]', 'data-testid': 'empty-state' },
+    { class: 'px-[24px] py-[56px] text-center text-[15px] text-[#3D424C] lg:col-span-2', 'data-testid': 'empty-state' },
     el('p', { class: 'font-bold' }, categoryName === null ? 'Nothing new today.' : `Nothing new in ${categoryName} today.`),
   );
 }
@@ -270,7 +270,7 @@ function emptyState(categoryName: string | null): HTMLElement {
 function loadingState(words: string): HTMLElement {
   return el(
     'div',
-    { class: 'flex flex-col items-center gap-[12px] px-[16px] py-[56px] text-[15px] text-[#3D424C]', 'data-testid': 'loading', role: 'status' },
+    { class: 'flex flex-col items-center gap-[12px] px-[16px] py-[56px] text-[15px] text-[#3D424C] lg:col-span-2', 'data-testid': 'loading', role: 'status' },
     el('div', { class: 'size-[36px] rotate-45 rounded-full border-[4px] border-[#D9DCE1] border-t-[#1F4FD1]', 'aria-hidden': 'true' }),
     el('span', {}, words),
   );
@@ -289,7 +289,7 @@ function loadingState(words: string): HTMLElement {
 export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null, guest = false): HTMLElement {
   const list = el(
     'section',
-    { class: 'flex flex-col', 'aria-label': 'Headlines', 'aria-busy': 'true', 'data-testid': 'feed-list' },
+    { class: 'flex flex-col lg:grid lg:grid-cols-2', 'aria-label': 'Headlines', 'aria-busy': 'true', 'data-testid': 'feed-list' },
     loadingState('Loading headlines…'),
   );
   const screen = el('div', { class: 'flex flex-1 flex-col' }, ...(push ? [push] : []), list);
@@ -308,7 +308,7 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
   };
   const failed = () => {
     list.removeAttribute('aria-busy');
-    list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground' }, 'The headlines could not be loaded.'));
+    list.replaceChildren(el('p', { class: 'px-4 py-14 text-center text-muted-foreground lg:col-span-2' }, 'The headlines could not be loaded.'));
   };
   const select = (category: string | null, name: string) => {
     const request = ++latest;
