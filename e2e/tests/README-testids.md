@@ -8,6 +8,8 @@ Every `data-testid` the scenarios and the `support/` helpers of this repository 
 
 | data-testid | Element (design README) | Artboards |
 |---|---|---|
+| `app-name` | The app bar heading: the name Radarnik on the Feed view, and Bookmarks on the Bookmarks view of a signed-in owner (priitkustala/ai-news-frontend#86) | none (no artboard) |
+| `app-tagline` | The line under the app name, Your 30 second digest for every important AI news; shown on the Feed view, hidden on the Bookmarks view (priitkustala/ai-news-frontend#86) | none (no artboard) |
 | `article-category` | Article category | `artboards/11-article-online.html`, `artboards/12-article-offline.html` |
 | `article-image` | The picture on the article view with its text alternative (frontend#24, S-20) | `artboards/11-article-online.html` |
 | `article-image-credit` | The credit line a licensed picture carries on the article view, after the slot (frontend#24, S-20; in the form of the feed's credit line) | none: no artboard draws this id (artboard 11 draws a hotlink picture, which has no credit line) |

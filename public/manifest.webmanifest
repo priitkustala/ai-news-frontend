@@ -1,6 +1,6 @@
 {
-  "name": "AI news",
-  "short_name": "AI news",
+  "name": "Radarnik",
+  "short_name": "Radarnik",
   "description": "AI-specific news for the owner's iPhone",
   "start_url": "/",
   "scope": "/",

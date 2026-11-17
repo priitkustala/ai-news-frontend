@@ -10,7 +10,7 @@ async function expectNoHint(page: Page): Promise<void> {
   await page.goto('/');
 
   // When: the client has rendered
-  await expect(page.getByRole('heading', { name: 'AI news', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Radarnik', exact: true })).toBeVisible();
   await expect(page.getByTestId('feed-list')).toBeVisible();
 
   // Then: no install hint and no Add to Home Screen text

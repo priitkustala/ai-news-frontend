@@ -27,7 +27,7 @@ function refusedNote(): HTMLElement {
   return note(
     'notifications-refused',
     'Notifications are off.',
-    "The daily feed works as usual. To get the daily notification, allow notifications for AI news in the iPhone's Settings.",
+    "The daily feed works as usual. To get the daily notification, allow notifications for Radarnik in the iPhone's Settings.",
   );
 }
 
