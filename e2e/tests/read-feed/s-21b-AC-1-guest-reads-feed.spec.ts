@@ -14,7 +14,7 @@ import { itemWithTitle } from '../../support/feed';
 
 test(
   's-21b-AC-1: a visitor with no session reads the feed, with no sign-in form, and sees no tab bar',
-  { tag: ['@journey-read-feed', '@surface-app', '@story-s-21b', '@story-69'] },
+  { tag: ['@journey-read-feed', '@surface-app', '@story-44', '@story-69'] },
   async ({ page }) => {
     // Given: a seeded item (<run> in its title); the browser holds no stored session
     const run = runMarker();

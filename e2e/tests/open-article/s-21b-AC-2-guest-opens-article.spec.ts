@@ -11,7 +11,7 @@ import { itemWithTitle } from '../../support/feed';
 
 test(
   's-21b-AC-2: a visitor opens an article from the guest feed and goes back',
-  { tag: ['@journey-open-article', '@surface-app', '@story-s-21b'] },
+  { tag: ['@journey-open-article', '@surface-app', '@story-44'] },
   async ({ page }) => {
     // Given: the guest feed with a seeded item (<run> in its title); the manifest names its title, summary and
     // original_url: the oracle, independent of the screens under test
