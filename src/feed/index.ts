@@ -26,6 +26,7 @@ import { el, icon } from '../dom.js';
 import { categoryFilter, type Category } from './categories.js';
 import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
+import { readControl, unreadDot } from '../read/index.js';
 import { announce } from '../status.js';
 import {
   ERROR,
@@ -184,26 +185,113 @@ function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
     event.preventDefault();
     open(row, categoryName);
   });
-  return el('h2', { class: 'text-[17px] font-bold leading-[1.3]' }, link);
+  return el('h2', { class: 'flex items-start gap-1.5 text-[17px] font-bold leading-[1.3]' }, unreadDot(row.id), link);
 }
 
-// One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
-// last row holds the link to the original (a Reddit row: the post and external links), then the
-// bookmark control at the right (artboard 14), which a visitor's feed leaves out.
-export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle, bookmarkable = true): HTMLElement {
-  const title = headline(row, categoryName, open);
-  const summary = isReddit(row)
+// The item's corner controls (Radarnik v2 proposal, priitkustala/ai-news#120): the read pill and,
+// where the reader may bookmark, the bookmark control (artboard 14), at the top right of the item.
+function cornerControls(row: FeedRow, bookmarkable: boolean): HTMLElement {
+  return el('div', { class: 'flex shrink-0 items-center gap-1' }, readControl(row.id, row.title), ...(bookmarkable ? [bookmarkControl(row)] : []));
+}
+
+// The metadata line with the corner controls beside it.
+function topRow(row: FeedRow, categoryName: string, bookmarkable: boolean): HTMLElement {
+  const meta = metaLine(row, categoryName);
+  meta.classList.add('min-w-0', 'pt-1.5');
+  return el('div', { class: 'flex items-start justify-between gap-2' }, meta, cornerControls(row, bookmarkable));
+}
+
+function summaryOf(row: FeedRow): HTMLElement | null {
+  return isReddit(row)
     ? attribution(row)
     : row.summary
       ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
       : null;
-  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row), ...(bookmarkable ? [bookmarkControl(row)] : []));
-  const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
+}
+
+// One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
+// metadata line carries the read pill and the bookmark control at its right (a visitor's feed
+// leaves the bookmark out); the last row holds the link to the original (a Reddit row: the post and
+// external links).
+export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle, bookmarkable = true): HTMLElement {
+  const title = headline(row, categoryName, open);
+  const summary = summaryOf(row);
+  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row));
+  const text = [topRow(row, categoryName, bookmarkable), title, summary].filter((node): node is HTMLElement => node !== null);
   const item = el('article', { 'data-testid': 'feed-item' });
   // Compact until a picture has loaded (S-09): pending, placeholder and failed keep this layout.
   const slot = imageSlot(row, (picture, credit) => pictureLayout(item, text, picture, credit, actions));
   compactLayout(item, text, slot, actions);
   return item;
+}
+
+// The lead story of the All view (Radarnik v2 proposal): the first row in a bordered card with the
+// "Lead story" label and the corner controls, the metadata line, the title, the feed's summary
+// under "What happened", then the image slot and the link, in the approved order (OD-17 B, OD-19).
+// It is a feed-item like the others, the full list width on a phone and one column on a laptop.
+function leadItem(row: FeedRow, categoryName: string, open: OpenArticle, bookmarkable: boolean): HTMLElement {
+  const summary = summaryOf(row);
+  const happened = summary && !isReddit(row)
+    ? el('div', {}, el('p', { class: 'text-[13px] font-bold text-[#1F4FD1]' }, 'What happened'), summary)
+    : summary;
+  const label = el('span', { class: 'mt-1 rounded-[4px] bg-[#1F4FD1] px-1.5 py-0.5 text-xs font-bold text-white', 'data-testid': 'lead-story-label' }, 'Lead story');
+  const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row));
+  const card = el('div', { class: 'flex flex-col gap-1.5 rounded-2xl border border-[#E3E5E9] p-4' });
+  const head = [
+    el('div', { class: 'flex items-start justify-between gap-2' }, label, cornerControls(row, bookmarkable)),
+    metaLine(row, categoryName),
+    headline(row, categoryName, open),
+    ...(happened ? [happened] : []),
+  ];
+  const slot = imageSlot(row, (picture, credit) => card.replaceChildren(...head, picture, ...(credit ? [credit] : []), actions));
+  card.append(...head, slot, actions);
+  return el('article', { class: 'border-b border-[#E3E5E9] px-4 py-3', 'data-testid': 'feed-item', 'data-lead': 'true' }, card);
+}
+
+// The category banner before each category's items on a phone (Radarnik v2 proposal): the
+// category's Radarnik illustration, "On Radarnik's radar" and the category name. From 1024 px the
+// feed keeps its two equal columns (priitkustala/ai-news-frontend#70), so the banner is not shown.
+const ILLUSTRATED = new Set(['releases', 'research', 'policy', 'business', 'other']);
+
+function categoryBanner(id: string, name: string): HTMLElement {
+  const picture = el('img', {
+    class: 'size-[76px] shrink-0 rounded-[10px]',
+    src: `/radarnik/${ILLUSTRATED.has(id) ? id : 'other'}.png`,
+    alt: '',
+    width: '76',
+    height: '76',
+  });
+  return el(
+    'div',
+    { class: 'mt-3 flex items-center gap-3.5 border-y border-[#C9D6F2] bg-[#EEF2FB] px-4 py-2 lg:hidden', 'data-testid': 'category-banner' },
+    picture,
+    el(
+      'div',
+      {},
+      el('p', { class: 'text-xs font-bold uppercase tracking-[0.08em] text-[#1F4FD1]' }, "On Radarnik's radar"),
+      el('h2', { class: 'text-[22px] font-bold leading-7' }, name),
+    ),
+  );
+}
+
+// The rows in groups of one category each, in the order the categories first appear; each group
+// keeps the view's order.
+function byCategory(rows: FeedRow[]): FeedRow[][] {
+  const groups = new Map<string, FeedRow[]>();
+  for (const row of rows) groups.set(row.category, [...(groups.get(row.category) ?? []), row]);
+  return [...groups.values()];
+}
+
+// The live ribbon under the app bar (Radarnik v2 proposal): "LIVE" and the first headlines of the
+// first read on dark marine (#E3E5E9 on #0B1F3A, 13.1:1). It repeats titles the list already
+// carries, so it is hidden from assistive technology, and it does not move.
+function liveRibbon(rows: FeedRow[]): HTMLElement {
+  return el(
+    'div',
+    { class: 'overflow-hidden whitespace-nowrap bg-[#0B1F3A] px-4 py-2 text-sm leading-5 text-[#E3E5E9]', 'aria-hidden': 'true', 'data-testid': 'live-ribbon' },
+    el('span', { class: 'mr-2 font-bold text-white' }, 'LIVE'),
+    rows.slice(0, 5).map((row) => row.title).join(' · '),
+  );
 }
 
 // The last-updated element: under the app bar while the last completed run is less than a day
@@ -304,7 +392,13 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
       list.replaceChildren(emptyState(categoryName));
       return;
     }
-    list.replaceChildren(...rows.map((row) => feedItem(row, names.get(row.category) ?? row.category, open, !guest)));
+    const nameOf = (row: FeedRow) => names.get(row.category) ?? row.category;
+    const [lead, ...rest] = categoryName === null ? rows : [null, ...rows];
+    const groups = byCategory(rest.filter((row): row is FeedRow => row !== null));
+    list.replaceChildren(
+      ...(lead ? [leadItem(lead, nameOf(lead), open, !guest)] : []),
+      ...groups.flatMap((group) => [categoryBanner(group[0].category, nameOf(group[0])), ...group.map((row) => feedItem(row, nameOf(row), open, !guest))]),
+    );
   };
   const failed = () => {
     list.removeAttribute('aria-busy');
@@ -330,10 +424,12 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
     for (const node of drawn) node.remove();
     names = new Map(categories.map((category) => [category.id, category.name]));
     const updated = lastUpdated(run, Date.now());
+    // No ribbon over an empty feed: LIVE alone would announce nothing.
+    const ribbon = rows.length > 0 ? [liveRibbon(rows)] : [];
     const filter = categoryFilter(categories, select);
-    screen.prepend(updated, ...(state ? [state] : []));
+    screen.prepend(updated, ...ribbon, ...(state ? [state] : []));
     list.before(filter);
-    drawn = [updated, filter, ...(state ? [state] : [])];
+    drawn = [updated, ...ribbon, filter, ...(state ? [state] : [])];
     show(rows, null);
   };
   const retry = retryButton();

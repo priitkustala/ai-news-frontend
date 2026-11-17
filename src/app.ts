@@ -42,8 +42,19 @@ const status = statusRegion();
 document.body.append(status);
 root.classList.add('pb-[75px]', 'md:pb-0');
 
+// The Radarnik logo, the app bar's title on the feed (Radarnik v2 proposal, priitkustala/ai-news#120);
+// its text alternative is the app's name.
+function brand(): HTMLElement {
+  return el('img', { src: '/radarnik/logo.png', alt: 'Radarnik', width: '211', height: '37', class: 'block h-[37px] w-auto' });
+}
+
 function appBar(): HTMLElement {
-  return el('header', { class: 'px-4 pt-3.5 pb-2' }, el('h1', { class: 'text-[22px] font-bold leading-tight' }, 'AI news'));
+  return el(
+    'header',
+    { class: 'px-4 pt-3.5 pb-2' },
+    el('h1', { class: 'text-[22px] font-bold leading-tight' }, brand()),
+    el('p', { class: 'mt-1 text-[13px] text-muted-foreground', 'data-testid': 'app-tagline' }, 'AI news, on your radar'),
+  );
 }
 
 // The sign-in card, opened at the address /#sign-in of a visitor's screen (priitkustala/ai-news-frontend#69).
@@ -146,14 +157,14 @@ function showTab(tab: Tab): void {
     if (shownTab === 'feed') feedScroll = window.scrollY;
     panels.feed.hidden = true;
     panels.bookmarks.hidden = false;
-    if (title) title.textContent = 'Bookmarks';
+    if (title) title.replaceChildren('Bookmarks');
     window.scrollTo(0, 0);
     panels.reload();
   } else {
     panels.feed.hidden = false;
     panels.bookmarks.hidden = true;
     panels.leave();
-    if (title) title.textContent = 'AI news';
+    if (title) title.replaceChildren(brand());
     if (shownTab === 'bookmarks') window.scrollTo(0, feedScroll);
   }
   shownTab = tab;
