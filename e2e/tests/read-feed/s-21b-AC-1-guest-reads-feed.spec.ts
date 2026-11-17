@@ -5,7 +5,7 @@
 // the seeded item (more than 0 feed-item in feed-list) and no sign-in form is on the feed screen.
 // Changed by priitkustala/ai-news-frontend#69 (HB-1, the owner decision of 2026-11-16: bookmarks are hidden from
 // visitors until accounts can be created). Old Then: the Feed and Bookmarks tabs show. New Then: no tab bar
-// (no nav-feed, no nav-bookmarks), no bookmark control and no sign-in form, the app bar titled AI news; and the
+// (no nav-feed, no nav-bookmarks), no bookmark control and no sign-in form, the app bar titled Radarnik; and the
 // same holds in the article view the visitor opens from the feed.
 import { test, expect } from '@playwright/test';
 import { runMarker } from '../../support/env';
@@ -33,7 +33,7 @@ test(
     await expect(page.getByTestId('nav-feed')).toHaveCount(0);
     await expect(page.getByTestId('feed-item-bookmark')).toHaveCount(0);
     await expect(page.getByTestId('sign-in-form')).toHaveCount(0);
-    await expect(page.locator('header h1')).toHaveText('AI news');
+    await expect(page.locator('header h1')).toHaveText('Radarnik');
 
     // When: the visitor opens the seeded item's article view
     await item.getByTestId('feed-item-title').tap();
