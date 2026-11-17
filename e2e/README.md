@@ -92,6 +92,8 @@ it fails when a smoke row fails, and that marks the deploy failed.
 - No trace and no artifact: the repository is public and its workflow logs are readable by anyone,
   and a trace would record the typed password and the session token.
 - No manual step: the workflow runs after the deploy without a person.
+- The daily freshness run (priitkustala/ai-news-frontend#84): `.github/workflows/freshness.yml` runs
+  53-SMOKE-c alone every day at 20:47 UTC with the window `0`: a day with no completed ingestion run fails it.
 
 A local smoke run sets `E2E_SMOKE_EMAIL` and `E2E_SMOKE_PASSWORD` from the `second-user` entry of
 `scripts/personas.json` in the same shell command that runs Playwright, never printed:
