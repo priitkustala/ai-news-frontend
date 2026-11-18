@@ -156,11 +156,13 @@ function attribution(row: FeedRow): HTMLElement {
   );
 }
 
-// The compact layout (artboard 01): the slot at the item's left in an 88 px column, the text
-// beside it. Document order stays metadata, title, summary, slot, link.
+// The compact layout (artboard 01): the slot at the item's left in a 5.5rem column, the slot's own
+// size-22 (88 px at the default text size), so that at a larger text size the slot never reaches
+// into the text beside it (priitkustala/ai-news-frontend#89). Document order stays metadata,
+// title, summary, slot, link.
 function compactLayout(item: HTMLElement, text: HTMLElement[], slot: HTMLElement, link: HTMLElement | null): void {
   const rows = text.length + (link ? 1 : 0);
-  item.className = 'grid min-h-28 grid-cols-[88px_minmax(0,1fr)] content-start gap-x-3 gap-y-1 border-b border-[#E3E5E9] px-4 py-3';
+  item.className = 'grid min-h-28 grid-cols-[5.5rem_minmax(0,1fr)] content-start gap-x-3 gap-y-1 border-b border-[#E3E5E9] px-4 py-3';
   for (const node of [...text, ...(link ? [link] : [])]) node.classList.add('col-start-2');
   slot.classList.add('col-start-1', 'row-start-1', rows === 4 ? 'row-span-4' : 'row-span-3');
   item.replaceChildren(...text, slot, ...(link ? [link] : []));
