@@ -11,14 +11,42 @@
 // Limit: on the hosted project this row works only while guest reading is open there (settlement F5).
 import { test } from '@playwright/test';
 import { expectRows } from '../../support/data';
-import { runDateToday } from '../../support/env';
+import { requireEnv, runDateToday } from '../../support/env';
 import { maxRunAgeDays, readQuery } from '../../support/smoke';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// The start moment of the run: E2E_FRESHNESS_START when it is set (an ISO 8601 UTC moment such as
+// 2026-11-17T02:37:39Z, for a local run that stands for a late start), otherwise the real clock.
+// No workflow sets it. A malformed value fails the row; there is no fallback.
+function startMoment(): Date | null {
+  const raw = process.env.E2E_FRESHNESS_START;
+  if (raw === undefined) return null;
+  const moment = new Date(raw);
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(raw) ||
+    Number.isNaN(moment.getTime()) ||
+    moment.toISOString().slice(0, 19) !== raw.slice(0, 19)
+  ) {
+    throw new Error('E2E_FRESHNESS_START is not an ISO 8601 UTC moment (YYYY-MM-DDTHH:MM:SSZ).');
+  }
+  return moment;
+}
+
+// The day the row checks: the date of the start moment in E2E_RUN_TIME_ZONE; with no start
+// moment set, today's run date exactly as runDateToday gives it.
+function checkedDay(): string {
+  const moment = startMoment();
+  if (moment === null) return runDateToday();
+  const timeZone = requireEnv('E2E_RUN_TIME_ZONE', 'the run time zone of OD-09');
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    moment,
+  );
+}
+
 test(
   '53-SMOKE-c: the newest completed ingestion run is within the window',
-  { tag: ['@tier-smoke', '@journey-read-feed', '@surface-data', '@story-53'] },
+  { tag: ['@tier-smoke', '@journey-read-feed', '@surface-data', '@story-53', '@bug-198'] },
   async ({ request }) => {
     // Given: a visitor, no session, and the window
     const window = maxRunAgeDays();
@@ -33,7 +61,7 @@ test(
 
     // Then: its run date is at most the window's days before today
     const runDate = typeof rows[0]?.run_date === 'string' ? (rows[0].run_date as string) : null;
-    const age = runDate === null ? Infinity : (Date.parse(runDateToday()) - Date.parse(runDate)) / DAY_MS;
+    const age = runDate === null ? Infinity : (Date.parse(checkedDay()) - Date.parse(runDate)) / DAY_MS;
     if (!(age <= window)) {
       throw new Error(`freshness: newest completed run date ${runDate ?? 'none'}, window ${window} days`);
     }
