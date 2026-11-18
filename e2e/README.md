@@ -51,6 +51,8 @@ holds the key keeps working until priitkustala/ai-news#94. In a story's own inst
 | `E2E_FIXTURE_FEED_URL` | `http://ai-news-feeds:8081/feeds/techcrunch-ai.xml` (the backend's fixture feed server; no scenario of this repository reads it, and it is on the backend's internal network only) |
 | `E2E_OD08` | `undecided` (OD-08 is open; no scenario of this repository reads it) |
 | `E2E_RUN_TIME_ZONE` | `UTC` (a test variable; OD-09 stays open) |
+| `E2E_FRESHNESS_START` | the clock input of the freshness row 53-SMOKE-c (priitkustala/ai-news#198): an ISO 8601 UTC moment such as `2026-11-17T02:37:39Z` that stands for the run's start moment; unset, the real clock; no workflow sets it; a malformed value fails the row with an error naming it |
+| `E2E_FRESHNESS_SLOT_UTC` | the shift input of the freshness row 53-SMOKE-c (priitkustala/ai-news#198): the daily schedule's UTC time `HH:MM`, set to `'20:47'` only by `.github/workflows/freshness.yml`; set, the row checks the UTC date of the start moment minus that time; unset, the date of the start moment in `E2E_RUN_TIME_ZONE`; a malformed value fails the row with an error naming it |
 | `E2E_SMOKE_EMAIL` | the smoke user's e-mail (section Smoke); local value: the `second-user` entry of `scripts/personas.json`, set in the environment of the run only, never in a file |
 | `E2E_SMOKE_PASSWORD` | the smoke user's password (section Smoke); local value: the `second-user` entry of `scripts/personas.json`, set in the environment of the run only, never in a file |
 | `E2E_SMOKE_MAX_RUN_AGE_DAYS` | the freshness window of the smoke row 53-SMOKE-c in days; default `1` |
@@ -94,6 +96,9 @@ it fails when a smoke row fails, and that marks the deploy failed.
 - No manual step: the workflow runs after the deploy without a person.
 - The daily freshness run (priitkustala/ai-news-frontend#84): `.github/workflows/freshness.yml` runs
   53-SMOKE-c alone every day at 20:47 UTC with the window `0`: a day with no completed ingestion run fails it.
+  Each run checks the UTC day it was scheduled for, the date of its start moment minus 20:47
+  (priitkustala/ai-news#198), so a late start, even after UTC midnight, still checks that day; a hand-started
+  run checks the day a scheduled run started at that moment would check.
 
 A local smoke run sets `E2E_SMOKE_EMAIL` and `E2E_SMOKE_PASSWORD` from the `second-user` entry of
 `scripts/personas.json` in the same shell command that runs Playwright, never printed:

@@ -4,6 +4,11 @@
 # happens leaves no run to fail; this check lives in this repository so that a schedule fault of ai-news-backend does
 # not silence it. It reads only: no seed, no sign-in, no browser. This repository is public and its logs are readable
 # by anyone, so the run keeps no trace, uploads no artifact and prints no variable. The owner sets the two secrets.
+# The checked day (priitkustala/ai-news#198): E2E_FRESHNESS_SLOT_UTC is the schedule time, so a run checks the UTC
+# date of its start moment minus 20:47, the UTC day it was scheduled for, however late GitHub starts it (the 20:47
+# slot of 17 November, started at 02:37 on 18 November, checks 17 November). A hand-started run (workflow_dispatch)
+# checks the same day a scheduled run started at that moment would check: before 20:47 UTC the day before, from
+# 20:47 UTC that day.
 name: freshness
 
 on:
@@ -36,4 +41,5 @@ jobs:
           E2E_PUBLISHABLE_KEY: ${{ secrets.SMOKE_PUBLISHABLE_KEY }}
           E2E_SMOKE_MAX_RUN_AGE_DAYS: '0'
           E2E_RUN_TIME_ZONE: UTC
+          E2E_FRESHNESS_SLOT_UTC: '20:47'
         run: npx playwright test --project api --grep 53-SMOKE-c --trace off

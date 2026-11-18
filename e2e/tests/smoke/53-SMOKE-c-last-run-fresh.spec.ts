@@ -4,8 +4,14 @@
 // Given a visitor (the publishable key only, no session), when the last-updated columns of ingestion_runs are
 // read as the client's last-updated line reads them (src/feed/index.ts: run_date and ended_at of the newest
 // completed run), then the newest completed run's run_date is at most E2E_SMOKE_MAX_RUN_AGE_DAYS days (default 1)
-// before today in E2E_RUN_TIME_ZONE; otherwise the failure starts with freshness: and names the run date found
-// and the window. Read only: no seed, no development sign-in, no job command.
+// before the checked day; otherwise the failure starts with freshness: and names the run date found and the
+// window. Read only: no seed, no development sign-in, no job command.
+// The checked day (priitkustala/ai-news#198, tag @bug-198): with E2E_FRESHNESS_SLOT_UTC set (only the daily
+// freshness workflow sets it, to its schedule time 20:47), the UTC date of the start moment minus that slot
+// time, which is the UTC day the run was scheduled for, however late GitHub starts it; a hand-started run checks
+// the day a scheduled run started at that moment would check. Without it, the date of the start moment in
+// E2E_RUN_TIME_ZONE, as before (smoke.yml and release.yml). The start moment is the real clock, or
+// E2E_FRESHNESS_START when set (local runs only).
 // Why no session (owner decision of 2026-11-12): migration 0015 of ai-news-backend#47 grants these columns of
 // ingestion_runs to anon only; a signed-in user who is not the owner reads no run row.
 // Limit: on the hosted project this row works only while guest reading is open there (settlement F5).
@@ -33,10 +39,28 @@ function startMoment(): Date | null {
   return moment;
 }
 
-// The day the row checks: the date of the start moment in E2E_RUN_TIME_ZONE; with no start
-// moment set, today's run date exactly as runDateToday gives it.
+// The slot time of the daily schedule in minutes after UTC midnight: E2E_FRESHNESS_SLOT_UTC (HH:MM)
+// when it is set, otherwise null. A malformed value fails the row; there is no fallback.
+function slotMinutes(): number | null {
+  const raw = process.env.E2E_FRESHNESS_SLOT_UTC;
+  if (raw === undefined) return null;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(raw);
+  if (match === null) {
+    throw new Error('E2E_FRESHNESS_SLOT_UTC is not a UTC time of day (HH:MM).');
+  }
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+// The day the row checks: with a slot time, the UTC date of the start moment minus the slot time
+// (the day the run was scheduled for); without one, the date of the start moment in
+// E2E_RUN_TIME_ZONE, and with no start moment set either, today's run date exactly as runDateToday
+// gives it.
 function checkedDay(): string {
+  const slot = slotMinutes();
   const moment = startMoment();
+  if (slot !== null) {
+    return new Date((moment ?? new Date()).getTime() - slot * 60 * 1000).toISOString().slice(0, 10);
+  }
   if (moment === null) return runDateToday();
   const timeZone = requireEnv('E2E_RUN_TIME_ZONE', 'the run time zone of OD-09');
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
@@ -59,7 +83,7 @@ test(
     );
     const rows = expectRows(result, 'a visitor reads the last-updated columns of ingestion_runs');
 
-    // Then: its run date is at most the window's days before today
+    // Then: its run date is at most the window's days before the checked day
     const runDate = typeof rows[0]?.run_date === 'string' ? (rows[0].run_date as string) : null;
     const age = runDate === null ? Infinity : (Date.parse(checkedDay()) - Date.parse(runDate)) / DAY_MS;
     if (!(age <= window)) {
