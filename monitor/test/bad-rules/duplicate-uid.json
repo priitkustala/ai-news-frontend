@@ -1,0 +1,7 @@
+{
+  "rules": [
+    { "uid": "mon-ingestion", "severity": "warning", "for": 1, "probe": "ingestion", "outage": "no" },
+    { "uid": "bad-rule", "severity": "critical", "for": 1, "probe": "data-interface", "outage": "no" },
+    { "uid": "bad-rule", "severity": "critical", "for": 1, "probe": "not-paused", "outage": "no" }
+  ]
+}
