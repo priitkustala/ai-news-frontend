@@ -66,8 +66,10 @@ async function add(row: BookmarkSubject): Promise<boolean> {
     const { error } = await client
       .from('bookmarks')
       .insert({ item_id: row.id, title: row.title, link: row.canonical_url, summary: row.summary || null });
+    if (error && error.code !== '23505') console.error('bookmark add failed', error.message);
     return !error || error.code === '23505';
-  } catch {
+  } catch (error) {
+    console.error('bookmark add failed', error instanceof Error ? error.message : String(error));
     return false;
   }
 }
@@ -76,8 +78,10 @@ async function remove(id: string): Promise<boolean> {
   if (!client) return false;
   try {
     const { error } = await client.from('bookmarks').delete().eq('item_id', id);
+    if (error) console.error('bookmark remove failed', error.message);
     return !error;
-  } catch {
+  } catch (error) {
+    console.error('bookmark remove failed', error instanceof Error ? error.message : String(error));
     return false;
   }
 }

@@ -274,7 +274,8 @@ async function sessionRefused(session: Session): Promise<boolean> {
     if (response.ok) return false;
     const body = (await response.json()) as { error_code?: string };
     return body.error_code === 'bad_jwt';
-  } catch {
+  } catch (error) {
+    console.error('session check failed', error instanceof Error ? error.message : String(error));
     return false;
   }
 }

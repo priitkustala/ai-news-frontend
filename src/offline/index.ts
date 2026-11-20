@@ -54,7 +54,8 @@ function read(key: string): unknown {
   try {
     const text = localStorage.getItem(key);
     return text === null ? null : JSON.parse(text);
-  } catch {
+  } catch (error) {
+    console.error('stored copy could not be read', key, error instanceof Error ? error.name : String(error));
     return null;
   }
 }
