@@ -23,23 +23,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookmarkControl } from '../bookmarks/control.js';
 import { el, icon } from '../dom.js';
-import { categoryFilter, type Category } from './categories.js';
+import { categoryFilter } from './categories.js';
 import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
 import { announce } from '../status.js';
-import {
-  ERROR,
-  errorState,
-  feedCopy,
-  lifetime,
-  OFFLINE_FEED,
-  offlineBanner,
-  reachable,
-  retryButton,
-  saveFeed,
-  setMode,
-  type FeedCopy,
-} from '../offline/index.js';
+import { firstRead, readFeed, type FeedResult } from './data.js';
+import { ERROR, errorState, OFFLINE_FEED, offlineBanner, retryButton, type FeedCopy } from '../offline/index.js';
 
 export interface FeedRow {
   id: string;
@@ -227,37 +216,6 @@ function lastUpdated(run: CompletedRun | null, now: number): HTMLElement {
   );
 }
 
-const FEED_COLUMNS = 'id,source_id,title,summary,source_name,category,canonical_url,image_url,image_policy,published_at,source_type,community,post_url,external_url,author_handle,digest';
-
-// The feed view's rows in the view's order: every row for category null, otherwise that
-// category's rows only. Each selection of the filter reads the server again (AC-19).
-async function readFeed(client: SupabaseClient, category: string | null, retry = true): Promise<FeedRow[]> {
-  const query = client.from('feed').select(FEED_COLUMNS);
-  const { data, error } = await (category === null ? query : query.eq('category', category)).retry(retry);
-  if (error) throw new Error(error.message);
-  return data as FeedRow[];
-}
-
-// The first read makes no automatic retry (supabase-js retries a failed GET for about 7 seconds),
-// so that a failed read shows the Offline banner or the Error state at once (S-19).
-async function load(client: SupabaseClient): Promise<FeedCopy> {
-  const [rows, categories, runs] = await Promise.all([
-    readFeed(client, null, false),
-    client.from('categories').select('id,name,item_count').retry(false),
-    client
-      .from('ingestion_runs')
-      .select('run_date,ended_at')
-      .eq('status', 'completed')
-      .order('ended_at', { ascending: false, nullsFirst: false })
-      .order('run_date', { ascending: false })
-      .limit(1)
-      .retry(false),
-  ]);
-  if (categories.error) throw new Error(categories.error.message);
-  if (runs.error) throw new Error(runs.error.message);
-  return { rows, categories: categories.data as Category[], run: ((runs.data as CompletedRun[])[0] ?? null) };
-}
-
 // The Empty state (artboard 04): no row of the feed view for the selection; no error styling.
 function emptyState(categoryName: string | null): HTMLElement {
   return el(
@@ -284,10 +242,9 @@ function loadingState(words: string): HTMLElement {
 // its row with open. feed-list holds the loading state (aria-busy) until the first read answers.
 // A chip reads the feed again for its category (All: every row), the loading state replacing the
 // rows meanwhile; only the latest request draws, so a late answer never shows under another chip.
-// A failed first read asks whether the app's own origin answers (S-19): no answer is Offline, an
-// answer is Error. Either draws the kept copy, if there is one, under the banner or the Error
-// state, and is announced once in the one status region (src/status.ts). A visitor's feed (guest)
-// draws no bookmark control.
+// A failed first read is Offline or Error (./data.ts). Either draws the kept copy, if there is
+// one, under the banner or the Error state, and is announced once in the one status region
+// (src/status.ts). A visitor's feed (guest) draws no bookmark control.
 export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTMLElement | null, guest = false): HTMLElement {
   const list = el(
     'section',
@@ -340,27 +297,22 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
   };
   const retry = retryButton();
   const error = errorState(retry);
-  // A first read answered after sign-out draws and keeps nothing.
-  const first = () => {
-    const life = lifetime();
-    return load(client).then((copy) => {
-      if (life !== lifetime()) return;
-      setMode('online');
-      saveFeed(copy);
-      draw(copy, null);
-    });
-  };
-  // A failed first read: the kept copy under the state, or the state over the failure text.
-  const unreached = async () => {
-    const offline = !(await reachable());
-    setMode(offline ? 'offline' : 'error');
-    const state = offline ? offlineBanner(OFFLINE_FEED) : error;
-    const copy = feedCopy();
-    if (copy) draw(copy, state);
+  // Draws a first read's result (./data.ts); null (answered after sign-out) draws nothing. A failed
+  // first read: the kept copy under the state, or the state over the failure text.
+  const drawRead = (result: FeedResult | null) => {
+    if (!result) return;
+    const { state, copy } = result;
+    if (state === 'online') {
+      if (copy) draw(copy, null);
+      return;
+    }
+    const offline = state === 'offline';
+    const shown = offline ? offlineBanner(OFFLINE_FEED) : error;
+    if (copy) draw(copy, shown);
     else {
       for (const node of drawn) node.remove();
-      screen.prepend(state);
-      drawn = [state];
+      screen.prepend(shown);
+      drawn = [shown];
       failed();
     }
     announce(offline ? OFFLINE_FEED : ERROR);
@@ -369,8 +321,9 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
   retry.addEventListener('click', () => {
     if (retry.disabled) return;
     retry.disabled = true;
-    first().then(
-      () => {
+    firstRead(client, false).then(
+      (result) => {
+        drawRead(result);
         retry.disabled = false;
       },
       () => {
@@ -379,6 +332,6 @@ export function feedScreen(client: SupabaseClient, open: OpenArticle, push: HTML
       },
     );
   });
-  first().catch(unreached);
+  firstRead(client).then(drawRead);
   return screen;
 }
