@@ -1,0 +1,6 @@
+{
+  "rules": [
+    { "uid": "mon-ingestion", "severity": "warning", "for": 1, "probe": "ingestion", "outage": "no" },
+    { "uid": "bad-rule", "severity": "warning", "for": 2, "probe": "client-site", "outage": "yes" }
+  ]
+}

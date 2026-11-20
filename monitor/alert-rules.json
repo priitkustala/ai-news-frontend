@@ -1,0 +1,11 @@
+{
+  "rules": [
+    { "uid": "mon-ingestion", "severity": "warning", "for": 1, "probe": "ingestion", "outage": "no" },
+    { "uid": "mon-data-interface", "severity": "critical", "for": 1, "probe": "data-interface", "outage": "no" },
+    { "uid": "mon-feed-read", "severity": "warning", "for": 1, "probe": "feed-read", "outage": "no" },
+    { "uid": "mon-client-site", "severity": "warning", "for": 1, "probe": "client-site", "outage": "no" },
+    { "uid": "mon-not-paused", "severity": "critical", "for": 1, "probe": "not-paused", "outage": "no" },
+    { "uid": "mon-client-site-outage", "severity": "critical", "for": 2, "probe": "client-site", "outage": "yes" },
+    { "uid": "mon-feed-read-outage", "severity": "critical", "for": 2, "probe": "feed-read", "outage": "yes" }
+  ]
+}
