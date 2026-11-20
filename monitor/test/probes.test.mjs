@@ -43,7 +43,7 @@ async function runProbes(mode) {
 }
 
 // Asserts five lines in probe order: the named probe FAIL with a reading matching the pattern, the
-// others PASS, and a non-zero exit.
+// others PASS, and the exit code exactly 1.
 function assertOneFailure(result, probe, reading) {
   assert.equal(result.lines.length, 5, result.stdout);
   result.lines.forEach((line, index) => {
@@ -55,7 +55,7 @@ function assertOneFailure(result, probe, reading) {
       assert.match(line, new RegExp(`^${name} PASS `), line);
     }
   });
-  assert.notEqual(result.code, 0);
+  assert.equal(result.code, 1);
 }
 
 test('AC-1 good answers: five PASS lines in probe order and exit 0', async () => {

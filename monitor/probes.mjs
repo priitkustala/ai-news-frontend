@@ -46,18 +46,25 @@ export function readInputs(env) {
   return { inputs, problems };
 }
 
-// One read; the answer, or null when nothing answered within the timeout or the request failed.
+// One read, its body read whole; the status and body text, or null when nothing answered within the
+// timeout or the request failed. One timer per request, cleared when the request ends, so that no
+// open handle outlives the probe and the process ends by itself.
 async function read(url, headers, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { method: 'GET', headers, redirect: 'follow', signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetch(url, { method: 'GET', headers, redirect: 'follow', signal: controller.signal });
+    return { status: response.status, text: await response.text() };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-async function jsonOf(response) {
+function jsonOf(response) {
   try {
-    return await response.json();
+    return JSON.parse(response.text);
   } catch {
     return undefined;
   }
@@ -77,7 +84,7 @@ async function ingestion(inputs) {
   );
   if (!response) return noAnswer(inputs.timeoutMs);
   if (response.status !== 200) return { pass: false, reading: `runs list answered ${response.status}` };
-  const body = await jsonOf(response);
+  const body = jsonOf(response);
   const run = Array.isArray(body?.workflow_runs) ? body.workflow_runs[0] : undefined;
   if (!run) return { pass: false, reading: 'no completed run' };
   const completed = Date.parse(run.updated_at);
@@ -113,7 +120,7 @@ async function feedRead(inputs) {
     return { pass: false, reading: `token refused ${response.status}` };
   }
   if (response.status !== 200) return { pass: false, reading: `feed read answered ${response.status}` };
-  const rows = await jsonOf(response);
+  const rows = jsonOf(response);
   if (!Array.isArray(rows)) return { pass: false, reading: 'feed read answered 200 with no row list' };
   if (rows.length === 0) return { pass: false, reading: 'no rows' };
   return { pass: true, reading: `${rows.length} rows` };
@@ -124,7 +131,7 @@ async function clientSite(inputs) {
   const response = await read(`${inputs.siteUrl}${MANIFEST_PATH}`, { Accept: 'application/manifest+json, application/json' }, inputs.timeoutMs);
   if (!response) return noAnswer(inputs.timeoutMs);
   if (response.status !== 200) return { pass: false, reading: `no manifest: answered ${response.status}` };
-  const manifest = await jsonOf(response);
+  const manifest = jsonOf(response);
   if (manifest === undefined || manifest === null || typeof manifest !== 'object') {
     return { pass: false, reading: 'no manifest: body is not JSON' };
   }
@@ -138,7 +145,6 @@ async function clientSite(inputs) {
 async function notPaused(inputs) {
   const response = await read(`${inputs.dataUrl}${REST_ROOT}`, {}, inputs.timeoutMs);
   if (!response) return noAnswer(inputs.timeoutMs);
-  await response.body?.cancel();
   return { pass: true, reading: `answered ${response.status}` };
 }
 
@@ -171,7 +177,8 @@ async function main() {
   }
   const results = await runProbes(inputs);
   for (const result of results) console.log(`${result.name} ${result.pass ? 'PASS' : 'FAIL'} ${result.reading}`);
-  process.exit(results.every((result) => result.pass) ? 0 : 1);
+  // No process.exit after the reads: the exit code is set and the process ends by itself.
+  process.exitCode = results.every((result) => result.pass) ? 0 : 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
