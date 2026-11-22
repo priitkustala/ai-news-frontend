@@ -9,10 +9,11 @@
 // Every stored text is set as a text node, never as markup (B-03).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { el } from '../dom.js';
-import { feedItem, webAddress, type FeedRow, type OpenArticle } from '../feed/index.js';
+import { feedItem, webAddress, type OpenArticle } from '../feed/index.js';
 import { announce } from '../status.js';
 import { bookmarkControl, replaceBookmarks } from './control.js';
-import { bookmarksCopy, feedCopy, lifetime, saveBookmarks, type BookmarkCopyRow as BookmarkRow } from '../offline/index.js';
+import { readBookmarks } from './data.js';
+import { lifetime, type BookmarkCopyRow as BookmarkRow } from '../offline/index.js';
 
 const NOT_LOADED = 'Bookmarks could not be loaded.';
 
@@ -42,32 +43,22 @@ function storedItem(row: BookmarkRow): HTMLElement {
 export function bookmarksPanel(client: SupabaseClient, open: OpenArticle): { panel: HTMLElement; reload: () => Promise<void> } {
   const panel = el('section', { class: 'flex flex-col lg:mx-auto lg:w-full lg:max-w-2xl', 'aria-label': 'Bookmarks', 'data-testid': 'bookmarks-list' });
   // Only the answer of the latest opening is drawn, and only within the signed-in lifetime it
-  // started in. The reads make no automatic retry, so that a failed one draws the kept copy at
-  // once (S-19).
+  // started in (./data.ts reads, keeps and falls back to the kept copy).
   let opening = 0;
   async function reload(): Promise<void> {
     const mine = ++opening;
     const life = lifetime();
-    const answers = await Promise.all([
-      client.from('bookmarks').select('item_id,title,link,summary').order('created_at', { ascending: false }).retry(false),
-      client.from('feed').select('*').retry(false),
-      client.from('categories').select('id,name').retry(false),
-    ]).catch(() => null);
-    if (mine !== opening || life !== lifetime()) return;
-    const [bookmarks, feed, categories] = answers ?? [];
-    const read = !(!bookmarks || !feed || !categories || bookmarks.error || feed.error || categories.error);
-    const kept = read ? null : bookmarksCopy();
-    if (!read && !kept) {
+    const result = await readBookmarks(client, () => mine === opening && life === lifetime());
+    if (!result) return;
+    if (result.state === 'not-loaded') {
       panel.replaceChildren(note(NOT_LOADED));
       announce(NOT_LOADED);
       return;
     }
-    const keptFeed = read ? null : feedCopy();
-    const rows = read ? (bookmarks.data as BookmarkRow[]) : (kept ?? []);
-    const listed = new Map((read ? (feed.data as FeedRow[]) : (keptFeed?.rows ?? [])).map((row) => [row.id, row]));
-    const names = new Map((read ? (categories.data as { id: string; name: string }[]) : (keptFeed?.categories ?? [])).map((c) => [c.id, c.name]));
+    const rows = result.rows;
+    const listed = new Map(result.feed.map((row) => [row.id, row]));
+    const names = new Map(result.categories.map((c) => [c.id, c.name]));
     replaceBookmarks(rows.map((row) => row.item_id));
-    if (read) saveBookmarks(rows);
     if (rows.length === 0) {
       panel.replaceChildren(note('No bookmarks yet.'));
       return;
