@@ -24,7 +24,7 @@ test(
     await page.goto('/');
     const item = await itemWithTitle(page, run, 'prerequisite (45, the feed)');
     const online = await readCard(item, 'the online card');
-    expectCardOfPage(online, String(manifest.summary), 'the online card against the summary (priitkustala/ai-news#210)');
+    expectCardOfPage(online, String(manifest.summary), 'the online card against the summary (priitkustala/ai-news#210, row 1116)');
     await expect(item.getByTestId('feed-item-bookmark'), 'prerequisite (51): the bookmark control').toHaveAttribute('aria-pressed', 'false');
     await item.getByTestId('feed-item-bookmark').tap();
     await expect(item.getByTestId('feed-item-bookmark')).toHaveAttribute('aria-pressed', 'true');

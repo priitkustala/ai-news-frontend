@@ -23,7 +23,7 @@ test(
     const item = await itemWithTitle(page, run, 'prerequisite (45, the feed)');
     await expect(item.getByTestId('feed-item-title')).toHaveText(String(manifest.title));
     const online = await readCard(item, 'the online card');
-    expectCardOfPage(online, String(manifest.summary), 'the online card against the summary (priitkustala/ai-news#210)');
+    expectCardOfPage(online, String(manifest.summary), 'the online card against the summary (priitkustala/ai-news#210, row 1116)');
     await expect(item.getByTestId('feed-item-bookmark'), 'prerequisite (51): the bookmark control').toHaveAttribute('aria-pressed', 'false');
     await item.getByTestId('feed-item-bookmark').tap();
     await expect(item.getByTestId('feed-item-bookmark')).toHaveAttribute('aria-pressed', 'true');

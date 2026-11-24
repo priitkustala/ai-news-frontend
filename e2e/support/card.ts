@@ -18,7 +18,8 @@ export async function readCard(item: Locator, label: string): Promise<string> {
 }
 
 // The card is the opening of the page text: page and card not empty, the card at most half the page
-// text, ending with . ! ? or the ellipsis, and a prefix of the page text (before the ellipsis, trimmed).
+// text, ending with . ! ? or the ellipsis, and a prefix of the page text (before the ellipsis, trimmed);
+// a card that ends with the ellipsis ends at a whole word: the page text goes on with white space.
 export function expectCardOfPage(card: string, page: string, label: string): void {
   expect(page.trim(), `${label}: the page text is not empty`).not.toBe('');
   expect(card.trim(), `${label}: the card text is not empty`).not.toBe('');
@@ -28,4 +29,8 @@ export function expectCardOfPage(card: string, page: string, label: string): voi
   const opening = card.endsWith(ELLIPSIS) ? card.slice(0, -ELLIPSIS.length).trim() : card;
   expect(opening, `${label}: the card text before any ellipsis is not empty`).not.toBe('');
   expect(page.startsWith(opening), `${label}: the card is the opening of the page text`).toBe(true);
+  if (card.endsWith(ELLIPSIS)) {
+    const next = page.charAt(opening.length);
+    expect(/\s/.test(next), `${label}: the card ends at a whole word (the page text after its opening is ${JSON.stringify(next)}, not white space)`).toBe(true);
+  }
 }
