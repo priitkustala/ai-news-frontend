@@ -1,0 +1,5 @@
+{
+  "checkedAt": "2026-11-24T09:23:00Z",
+  "counts": { "ingestion": 0, "data-interface": 0, "feed-read": 0, "client-site": 1, "not-paused": 0 },
+  "since": { "ingestion": null, "data-interface": null, "feed-read": null, "client-site": "2026-11-24T09:23:00Z", "not-paused": null }
+}

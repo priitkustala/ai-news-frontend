@@ -10,12 +10,14 @@ import { MODES, startStub } from './stub.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../probes.mjs', import.meta.url));
 const TOKEN = 'stub-read-token';
+const GUEST_KEY = 'stub-guest-key';
 const TIMEOUT_MS = 1500;
 const ORDER = ['ingestion', 'data-interface', 'feed-read', 'client-site', 'not-paused'];
 
-// Runs the probe script against a stub in the given mode; its output lines and exit code.
-async function runProbes(mode) {
-  const stub = await startStub({ mode, token: TOKEN });
+// Runs the probe script against a stub in the given mode, with the given key as MONITOR_READ_TOKEN;
+// its output lines, exit code and the keyed feed reads the stub saw.
+async function runProbes(mode, token = TOKEN) {
+  const stub = await startStub({ mode, token });
   try {
     const env = {
       PATH: process.env.PATH,
@@ -24,7 +26,7 @@ async function runProbes(mode) {
       MONITOR_INGEST_WORKFLOW: 'ingest.yml',
       MONITOR_WINDOW_HOURS: '26',
       MONITOR_DATA_URL: stub.url,
-      MONITOR_READ_TOKEN: TOKEN,
+      MONITOR_READ_TOKEN: token,
       MONITOR_SITE_URL: stub.url,
       MONITOR_TIMEOUT_MS: String(TIMEOUT_MS),
     };
@@ -35,7 +37,9 @@ async function runProbes(mode) {
       child.stdout.on('data', (chunk) => (stdout += chunk));
       child.stderr.on('data', (chunk) => (stderr += chunk));
       child.on('error', reject);
-      child.on('close', (code) => resolve({ code, stdout, stderr, lines: stdout.split('\n').filter(Boolean) }));
+      child.on('close', (code) =>
+        resolve({ code, stdout, stderr, lines: stdout.split('\n').filter(Boolean), feedReads: stub.feedReads }),
+      );
     });
   } finally {
     await stub.close();
@@ -105,4 +109,13 @@ test('token never printed: the stub token appears in no output of any probe run'
     assert.ok(!result.stdout.includes(TOKEN), `${mode}: the token is in stdout`);
     assert.ok(!result.stderr.includes(TOKEN), `${mode}: the token is in stderr`);
   }
+});
+
+test('feed-read sends the guest key as apikey only: the stub sees the stub key in apikey and no Authorization header on the feed read', async () => {
+  const result = await runProbes('good', GUEST_KEY);
+  assert.equal(result.feedReads.length, 1, 'the stub saw no keyed feed read');
+  assert.deepEqual(result.feedReads[0], { apikey: GUEST_KEY, authorization: false });
+  assert.ok(result.lines.includes('feed-read PASS 2 rows'), result.stdout);
+  assert.ok(!result.stdout.includes(GUEST_KEY) && !result.stderr.includes(GUEST_KEY), 'the key is in the output');
+  assert.equal(result.code, 0, result.stdout);
 });

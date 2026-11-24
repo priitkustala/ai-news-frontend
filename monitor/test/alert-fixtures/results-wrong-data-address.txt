@@ -1,0 +1,5 @@
+ingestion PASS run 1001 success age 1.0h within window 13h
+data-interface FAIL no answer within 5000 ms
+feed-read FAIL no answer within 5000 ms
+client-site PASS manifest with a name
+not-paused FAIL no answer within 5000 ms

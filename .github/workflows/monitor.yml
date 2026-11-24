@@ -1,0 +1,140 @@
+# Hourly production check (priitkustala/ai-news-frontend#58, MON-2 under priitkustala/ai-news#27): runs the five
+# probes of MON-1 (monitor/probes.mjs) against production every hour, keeps each check's result lines and the
+# consecutive failure counts as the artifact monitor-state, reads the previous check's artifact so that a rule's for
+# value counts consecutive failed checks, and on a fired rule of monitor/alert-rules.json opens one triage report as a
+# plain issue labelled agent-discovered (monitor/alert.mjs fills it; no model runs here). At most one open report per
+# rule. It detects and reports only: a person executes any mitigation, and nothing is rolled back, redeployed or
+# written to the hosted data by this workflow. The probes only read; the only write is gh issue create in this
+# repository. The ingestion probe's window is 13 hours: the three daily ingestion starts of ai-news-backend
+# (04:17, 10:17 and 16:17 UTC) leave a longest gap of 12 hours, plus one hour for the run.
+# This repository is public and its logs are readable by anyone: the inputs reach the steps only through env, and no
+# step prints an env value, a header value or a response body. The owner sets the secrets and the variable.
+# A manual start (workflow_dispatch) can point the probes at another data or site address, for an induced failure;
+# empty means the production value. The job runs on main only.
+name: monitor
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      data_url:
+        description: Data interface address for this check; empty means the production value
+        type: string
+        required: false
+      site_url:
+        description: Client site address for this check; empty means the production value
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      # The newest completed run of this workflow on main, this run excluded, and its artifact monitor-state. No run,
+      # no artifact or an expired one leaves the folder empty, so every count starts at 0; gh prints the cause.
+      - name: Read the previous state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p monitor-previous
+          if ! previous=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow monitor.yml --branch main --status completed --limit 20 --json databaseId --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0].databaseId // empty"); then
+            echo "previous runs not listed; counts start at 0"
+            previous=''
+          fi
+          if [ -z "$previous" ]; then
+            echo "no previous completed run; counts start at 0"
+          elif ! gh run download "$previous" --repo "$GITHUB_REPOSITORY" --name monitor-state --dir monitor-previous; then
+            echo "no state artifact in run $previous; counts start at 0"
+          fi
+
+      # The five probes; their lines go to the results file and the exit code to the last step, so this step does
+      # not fail. The data address may be given with or without its /rest/v1 part (the smoke secret holds it with
+      # that part, the probes add it themselves).
+      - name: Run the probes
+        id: probes
+        env:
+          MONITOR_DATA_URL: ${{ inputs.data_url || secrets.SMOKE_DATA_URL }}
+          MONITOR_SITE_URL: ${{ inputs.site_url || format('https://{0}.web.app', vars.FIREBASE_SITE_ID) }}
+          MONITOR_READ_TOKEN: ${{ secrets.MONITOR_READ_TOKEN }}
+          MONITOR_WINDOW_HOURS: '13'
+        run: |
+          MONITOR_DATA_URL="${MONITOR_DATA_URL%/}"
+          export MONITOR_DATA_URL="${MONITOR_DATA_URL%/rest/v1}"
+          mkdir -p monitor-out
+          code=0
+          node monitor/probes.mjs > monitor-out/results.txt || code=$?
+          cat monitor-out/results.txt
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      # The context of a report: the end of the failed ingestion run's log, and the three newest commits of both
+      # repositories (short sha, date and first message line).
+      - name: Gather the context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p monitor-context
+          line=$(grep '^ingestion ' monitor-out/results.txt || true)
+          if [[ "$line" =~ ^ingestion\ (PASS|FAIL)\ run\ ([0-9]+)\ ([a-z_]+)\  ]] && [ "${BASH_REMATCH[3]}" != success ]; then
+            if ! gh run view "${BASH_REMATCH[2]}" --repo priitkustala/ai-news-backend --log-failed | tail -n 40 > monitor-context/ingestion-log.txt; then
+              echo "not available: the log of run ${BASH_REMATCH[2]} could not be read" > monitor-context/ingestion-log.txt
+            fi
+          else
+            echo "not available: the ingestion line names no run that did not succeed" > monitor-context/ingestion-log.txt
+          fi
+          for repo in ai-news-frontend ai-news-backend; do
+            echo "$repo"
+            gh api --method GET "repos/priitkustala/$repo/commits?per_page=3" --jq '.[] | "\(.sha[0:7]) \(.commit.committer.date) \(.commit.message | split("\n")[0])"' || echo "not available"
+          done > monitor-context/changes.txt
+
+      - name: List the open reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue list --repo "$GITHUB_REPOSITORY" --label agent-discovered --state open --limit 1000 --json number,title > monitor-open.json
+
+      - name: Evaluate the alert rules
+        run: node monitor/alert.mjs --results monitor-out/results.txt --previous monitor-previous --open monitor-open.json --context monitor-context --out monitor-out
+
+      - name: Keep the state of this check
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: monitor-state
+          path: |
+            monitor-out/state.json
+            monitor-out/results.txt
+          retention-days: 7
+
+      - name: Open the triage report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f monitor-out/report-title.txt ]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --label agent-discovered --title "$(cat monitor-out/report-title.txt)" --body-file monitor-out/report-body.md
+          else
+            echo "no report to open"
+          fi
+
+      - name: Fail the check when a probe failed
+        env:
+          PROBE_EXIT_CODE: ${{ steps.probes.outputs.exit_code }}
+        run: exit "$PROBE_EXIT_CODE"

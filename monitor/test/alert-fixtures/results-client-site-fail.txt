@@ -1,0 +1,5 @@
+ingestion PASS run 1001 success age 1.0h within window 13h
+data-interface PASS unauthenticated read refused 401
+feed-read PASS 2 rows
+client-site FAIL no manifest: answered 404
+not-paused PASS answered 401
