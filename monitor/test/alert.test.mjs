@@ -179,6 +179,20 @@ test('R4 open report suppresses a second: an open report naming the rule as a wh
     }),
   ));
 
+test('R4 open report with the uid before a period suppresses a second: Investigate mon-feed-read. covers mon-feed-read', () =>
+  withOut(async (out) => {
+    const result = await runAlert({ results: 'results-feed-read-fail.txt', open: fixture('open-feed-read-period.json'), out });
+    assert.match(result.line, /^fired: mon-feed-read; report written: no; covered by an open report: mon-feed-read;/);
+    assert.equal(result.title, null);
+  }));
+
+test('R4 open report with the uid in brackets suppresses a second: {mon-feed-read} covers mon-feed-read', () =>
+  withOut(async (out) => {
+    const result = await runAlert({ results: 'results-feed-read-fail.txt', open: fixture('open-feed-read-brackets.json'), out });
+    assert.match(result.line, /^fired: mon-feed-read; report written: no; covered by an open report: mon-feed-read;/);
+    assert.equal(result.title, null);
+  }));
+
 test('R4 one report per run: a wrong data address fails three probes and one report names all three rules', () =>
   withOut(async (out) => {
     const result = await runAlert({ results: 'results-wrong-data-address.txt', out });

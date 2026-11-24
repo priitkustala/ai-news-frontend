@@ -112,16 +112,29 @@ function emptyState() {
   };
 }
 
-// The first fault of a parsed state, or null when it is valid: a count per probe, and the start time
-// of the failures for every probe whose count is above 0.
-export function stateFault(document) {
+// The fault of the shape of a parsed state, or null: an object holding a counts and a since object.
+function shapeFault(document) {
   if (document === null || typeof document !== 'object') return 'not an object';
   if (document.counts === null || typeof document.counts !== 'object') return 'no counts';
   if (document.since === null || typeof document.since !== 'object') return 'no start times';
+  return null;
+}
+
+// The fault of one probe entry, or null: a whole count, and a start time when the count is above 0.
+function probeEntryFault(document, probe) {
+  const count = document.counts[probe];
+  if (!Number.isInteger(count) || count < 0) return `count of ${probe} not a whole number`;
+  if (count > 0 && !TIME.test(String(document.since[probe]))) return `start time of ${probe} missing`;
+  return null;
+}
+
+// The first fault of a parsed state, or null when it is valid: its shape, then each probe entry.
+export function stateFault(document) {
+  const shape = shapeFault(document);
+  if (shape !== null) return shape;
   for (const probe of PROBES) {
-    const count = document.counts[probe];
-    if (!Number.isInteger(count) || count < 0) return `count of ${probe} not a whole number`;
-    if (count > 0 && !TIME.test(String(document.since[probe]))) return `start time of ${probe} missing`;
+    const fault = probeEntryFault(document, probe);
+    if (fault !== null) return fault;
   }
   return null;
 }
@@ -168,10 +181,14 @@ function readOpen(file) {
   return document;
 }
 
-// An open report covers a rule when its title holds the rule uid as a whole word: mon-feed-read is
-// not covered by a title that names only mon-feed-read-outage.
+// An open report covers a rule when its title holds the rule uid with no letter, digit or hyphen right
+// before or after it: mon-feed-read. covers mon-feed-read, mon-feed-read-outage does not.
 export function covers(title, uid) {
-  return title.split(/[\s,;:()[\]]+/).includes(uid);
+  const free = (character) => character === undefined || !/[\p{L}\p{N}-]/u.test(character);
+  for (let at = title.indexOf(uid); at >= 0; at = title.indexOf(uid, at + 1)) {
+    if (free(title[at - 1]) && free(title[at + uid.length])) return true;
+  }
+  return false;
 }
 
 // A context file of the workflow. A missing one never stops the report by design: its section then
