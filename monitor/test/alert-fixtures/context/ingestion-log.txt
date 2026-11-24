@@ -1,0 +1,2 @@
+2026-11-24T04:21:07Z stub-ingest-step Error: stub source answered 503
+2026-11-24T04:21:08Z stub-ingest-step Process completed with exit code 1.

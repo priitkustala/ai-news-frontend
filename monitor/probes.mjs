@@ -112,7 +112,9 @@ async function dataInterface(inputs) {
 async function feedRead(inputs) {
   const response = await read(
     `${inputs.dataUrl}${FEED_PATH}`,
-    { apikey: inputs.readToken, Authorization: `Bearer ${inputs.readToken}`, Accept: 'application/json' },
+    // The key of a reader who is not signed in (owner decision 2026-11-24) is not a session token: it
+    // goes in apikey only, with no Authorization header, as the app sends it with no session.
+    { apikey: inputs.readToken, Accept: 'application/json' },
     inputs.timeoutMs,
   );
   if (!response) return noAnswer(inputs.timeoutMs);

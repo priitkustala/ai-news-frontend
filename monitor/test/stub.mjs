@@ -27,9 +27,11 @@ const ROWS = [
   { id: 'item-1', title: 'Stub article one', published_at: '2026-11-19T09:00:00Z' },
 ];
 
-// Starts the stub; resolves with its base address and a close function.
+// Starts the stub; resolves with its base address, the keyed feed reads it saw and a close function.
+// A keyed feed read is answered only when its apikey is the stub key.
 export async function startStub({ mode = 'good', token }) {
   if (!MODES.includes(mode)) throw new Error(`unknown stub mode ${mode}`);
+  const feedReads = [];
   const server = createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     if (request.method !== 'GET') return send(response, 405, { message: 'reads only' });
@@ -59,10 +61,13 @@ export async function startStub({ mode = 'good', token }) {
 
     if (url.pathname === '/rest/v1/feed') {
       const authorization = request.headers.authorization;
-      if (authorization === undefined && request.headers.apikey === undefined) {
+      const apikey = request.headers.apikey;
+      if (authorization === undefined && apikey === undefined) {
         return mode === 'data-interface-open' ? send(response, 200, ROWS) : send(response, 401, { message: 'No API key found in request' });
       }
-      if (mode === 'feed-token-refused' || authorization !== `Bearer ${token}`) {
+      // Each keyed feed read: the apikey it sent and whether an Authorization header came with it.
+      feedReads.push({ apikey, authorization: authorization !== undefined });
+      if (mode === 'feed-token-refused' || apikey !== token) {
         return send(response, 401, { message: 'Invalid authentication credentials' });
       }
       return send(response, 200, mode === 'feed-no-rows' ? [] : ROWS);
@@ -78,6 +83,7 @@ export async function startStub({ mode = 'good', token }) {
   const { port } = server.address();
   return {
     url: `http://127.0.0.1:${port}`,
+    feedReads,
     close: () =>
       new Promise((resolve) => {
         server.closeAllConnections();
