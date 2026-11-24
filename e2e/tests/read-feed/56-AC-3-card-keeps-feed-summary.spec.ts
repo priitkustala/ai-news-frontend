@@ -2,17 +2,21 @@
 // Source: the item's criterion AC-3 and the accepted settlement of DG-2 (The open points, settled: 5.2 the seeded
 // data, 5.3 the scenarios; Read me first point 3, the labelled first unmet step), in the form of the open-article
 // rows (1-AC-12).
+// Changed by priitkustala/ai-news#210 (CARD-1): the owner rule of Decisions row 1116 supersedes row 556 Q2 for the
+// card, so the card is no longer the feed summary as stored but the opening of the story page text.
 // Given the seed digests, the feed with A (a stored digest) and B (none), when the feed is drawn, then A's card
-// feed-item-summary shows A's feed summary unchanged, never the digest, and B's card shows B's feed summary. It
-// first opens A's article page, the story's first observable (A's digest shown), so that it fails before the build.
+// feed-item-summary is the opening of A's digest (A's page text), at most half of it, and not A's feed summary,
+// and B's card is the opening of B's feed summary (B's page text), at most half of it. It first opens A's article
+// page, the story's first observable (A's digest shown), so that it fails before the build.
 import { test, expect } from '../../support/session';
 import { runMarker } from '../../support/env';
 import { seed } from '../../support/job';
 import { itemWithTitle } from '../../support/feed';
 import { expectRows, readRelation, signInOwner, type Row } from '../../support/data';
+import { expectCardOfPage, readCard } from '../../support/card';
 
 test(
-  '56-AC-3: the feed card keeps the feed summary and never shows the digest',
+  '56-AC-3 (changed by #210): the feed card is the opening of the page text',
   { tag: ['@journey-read-feed', '@surface-app', '@story-56'] },
   async ({ page, request }) => {
     test.setTimeout(60_000);
@@ -42,9 +46,11 @@ test(
     const cardA = await itemWithTitle(page, `${run}-digest-1`, "A's card");
     const cardB = await itemWithTitle(page, `${run}-digest-3`, "B's card");
 
-    // Then: A's card shows A's feed summary, never the digest; B's card shows B's feed summary
-    await expect(cardA.getByTestId('feed-item-summary')).toHaveText(String(a!.summary));
-    await expect(cardA.getByTestId('feed-item-summary')).not.toContainText(String(a!.digest).slice(0, 40));
-    await expect(cardB.getByTestId('feed-item-summary')).toHaveText(String(b!.summary));
+    // Then: A's card is the opening of A's digest and not A's feed summary; B's card is the opening of B's feed
+    // summary
+    const textA = await readCard(cardA, "A's card");
+    expectCardOfPage(textA, String(a!.digest), "A's card against A's digest");
+    expect(textA, "A's card is not A's feed summary").not.toBe(String(a!.summary));
+    expectCardOfPage(await readCard(cardB, "B's card"), String(b!.summary), "B's card against B's feed summary");
   },
 );

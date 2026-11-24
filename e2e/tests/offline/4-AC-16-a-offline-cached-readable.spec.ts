@@ -8,6 +8,7 @@ import { test, expect } from '../../support/session';
 import { runMarker } from '../../support/env';
 import { seed } from '../../support/job';
 import { itemWithTitle, reopen } from '../../support/feed';
+import { expectCardOfPage, readCard } from '../../support/card';
 
 test(
   'AC-16a: offline the banner shows and cached headlines, summaries and the bookmark are readable',
@@ -21,7 +22,8 @@ test(
     await page.goto('/');
     const item = await itemWithTitle(page, run, 'prerequisite (45, the feed)');
     await expect(item.getByTestId('feed-item-title')).toHaveText(String(manifest.title));
-    await expect(item.getByTestId('feed-item-summary')).toHaveText(String(manifest.summary));
+    const online = await readCard(item, 'the online card');
+    expectCardOfPage(online, String(manifest.summary), 'the online card against the summary (priitkustala/ai-news#210, row 1116)');
     await expect(item.getByTestId('feed-item-bookmark'), 'prerequisite (51): the bookmark control').toHaveAttribute('aria-pressed', 'false');
     await item.getByTestId('feed-item-bookmark').tap();
     await expect(item.getByTestId('feed-item-bookmark')).toHaveAttribute('aria-pressed', 'true');
@@ -38,7 +40,7 @@ test(
     await expect(page.getByTestId('offline-banner'), 'Then: the Offline banner').toBeVisible();
     const cached = await itemWithTitle(page, run, 'Then');
     await expect(cached.getByTestId('feed-item-title')).toHaveText(String(manifest.title));
-    await expect(cached.getByTestId('feed-item-summary')).toHaveText(String(manifest.summary));
+    await expect(cached.getByTestId('feed-item-summary'), 'the kept card is the online card').toHaveText(online);
     await expect(page.getByTestId('nav-bookmarks'), 'prerequisite (51): the Bookmarks tab').toBeVisible();
     await page.getByTestId('nav-bookmarks').tap();
     await itemWithTitle(page.getByTestId('bookmarks-list'), run, 'Then');

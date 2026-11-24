@@ -9,6 +9,7 @@ import { runMarker } from '../../support/env';
 import { seed } from '../../support/job';
 import { itemWithTitle, reopen } from '../../support/feed';
 import { expectRows, readRelation, signInOwner, type Row } from '../../support/data';
+import { expectCardOfPage, readCard } from '../../support/card';
 
 test(
   '56-AC-4: offline the article page of an item keeps its stored digest',
@@ -30,7 +31,7 @@ test(
     expect(String(a!.digest).length, 'the oracle: the length the manifest names').toBe(lengths[0]);
     await page.goto('/');
     const item = await itemWithTitle(page, `${run}-digest-1`, 'prerequisite (45, the feed)');
-    await expect(item.getByTestId('feed-item-summary')).toHaveText(String(a!.summary));
+    expectCardOfPage(await readCard(item, "A's card"), String(a!.digest), "A's card against A's digest (changed by priitkustala/ai-news#210, row 1116)");
     // the service worker controls the page before the network goes (owner decision 2026-11-07)
     await page.waitForFunction(() => navigator.serviceWorker.controller?.state === 'activated');
     await context.setOffline(true);
