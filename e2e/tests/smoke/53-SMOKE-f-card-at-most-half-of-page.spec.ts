@@ -120,18 +120,18 @@ test(
     await page.getByTestId('sign-in-submit').click();
     await expect(page.getByTestId('signed-in')).toBeVisible();
 
-    // When: the Feed tab draws the served stories
-    await page.getByTestId('nav-feed').tap();
-    const items = page.getByTestId('feed-list').getByTestId('feed-item');
-    await expect(items.first()).toBeVisible();
-
-    // The rows the smoke session reads through the published interface; an empty feed fails here (rule 4)
+    // The rows the smoke session reads through the published interface, read before the Feed tab so that an empty
+    // feed fails on its own assertion here (rule 4) and not on the wait for a drawn item
     const result = await readQuery(request, 'feed?select=id,title,summary,digest,source_type', await signInSmoke(request));
     expect(result.status, 'the feed read with the smoke session answers 200').toBe(200);
     expect(result.malformed, 'the feed read answers a well-formed list of rows').toBe(false);
     expect(result.rows.length, 'the feed read holds rows: an empty feed is not a pass').toBeGreaterThan(0);
     const stories = result.rows.map(toStory);
 
+    // When: the Feed tab draws the served stories
+    await page.getByTestId('nav-feed').tap();
+    const items = page.getByTestId('feed-list').getByTestId('feed-item');
+    await expect(items.first()).toBeVisible();
     const drawnCount = await settledCount(items);
     const drawn = await readDrawn(items);
     expect(drawn.length, 'the drawn items read are the settled count').toBe(drawnCount);
