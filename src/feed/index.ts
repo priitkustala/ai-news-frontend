@@ -8,8 +8,9 @@
 // categories view): each tap reads the feed view again for that category, All for every row.
 // While a read is open feed-list holds the loading state (artboard 02); a read with no row shows
 // the Empty state (artboard 04). Each feed-item keeps the approved order (OD-17 B, OD-19): the
-// metadata line (source, category, time), the title, the feed's own summary where the feed has
-// one, the image slot (S-09, ./image.ts: the picture or the owned placeholder by the source's
+// metadata line (source, category, time), the title, the card text where there is one (./card-text.ts,
+// priitkustala/ai-news#210: the opening of the story page text, the digest or else the feed's own
+// summary, never more than half of it), the image slot (S-09, ./image.ts: the picture or the owned placeholder by the source's
 // image policy), then the link to the original. The title opens the item in the article view
 // (priitkustala/ai-news-frontend#1, src/article). A successful first read is kept on the device
 // (priitkustala/ai-news-frontend#4, S-19, src/offline); when the first read fails, the kept copy is
@@ -23,6 +24,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookmarkControl } from '../bookmarks/control.js';
 import { el, icon } from '../dom.js';
+import { cardText } from './card-text.js';
 import { categoryFilter } from './categories.js';
 import { shownDate, shownDay, shownTime } from './format.js';
 import { imageSlot } from './image.js';
@@ -178,16 +180,19 @@ function headline(row: FeedRow, categoryName: string, open: OpenArticle): HTMLEl
   return el('h2', { class: 'text-[17px] font-bold leading-[1.3]' }, link);
 }
 
+// The card text of a news row (priitkustala/ai-news#210): the opening of the text its story page
+// shows (src/article: the digest, else the feed's own summary); no paragraph when it is empty.
+function cardParagraph(row: FeedRow): HTMLElement | null {
+  const card = cardText(row.digest ?? row.summary ?? '');
+  return card ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, card) : null;
+}
+
 // One feed-item; the Bookmarks list draws its rows with it too (priitkustala/ai-news#51). The
 // last row holds the link to the original (a Reddit row: the post and external links), then the
 // bookmark control at the right (artboard 14), which a visitor's feed leaves out.
 export function feedItem(row: FeedRow, categoryName: string, open: OpenArticle, bookmarkable = true): HTMLElement {
   const title = headline(row, categoryName, open);
-  const summary = isReddit(row)
-    ? attribution(row)
-    : row.summary
-      ? el('p', { class: 'text-base leading-[1.45]', 'data-testid': 'feed-item-summary' }, row.summary)
-      : null;
+  const summary = isReddit(row) ? attribution(row) : cardParagraph(row);
   const actions = el('div', { class: 'flex flex-wrap items-center gap-1' }, ...links(row), ...(bookmarkable ? [bookmarkControl(row)] : []));
   const text = [metaLine(row, categoryName), title, summary].filter((node): node is HTMLElement => node !== null);
   const item = el('article', { 'data-testid': 'feed-item' });
